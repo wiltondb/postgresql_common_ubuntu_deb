@@ -1,0 +1,94 @@
+# This file contains common functionality for all postgresql server
+# package init.d scripts. It is usually included by
+# /etc/init.d/postgresql-X.Y.  
+
+if [ -f /lib/lsb/init-functions ]; then
+    . /lib/lsb/init-functions
+    USE_LSBINIT=1
+fi
+
+# do pg_ctlcluster action $1 to all clusters of version $2 with command
+# description $3; output according to Debian Policy for init scripts
+do_ctl_all() {
+    [ "$1" ] || { echo "Error: invalid command '$1'" >&2; exit 1; }
+    [ "$2" ] || { echo "Error: invalid version '$2'" >&2; exit 1; }
+    [ -d "/etc/postgresql/$2" ] || return
+    [ "$(ls /etc/postgresql/$2)" ] || return
+    [ -z "$3" ] || [ "$USE_LSBINIT" ] || echo -n "$3"
+
+    unset fail
+    for c in /etc/postgresql/"$2"/*; do
+	[ -e "$c/pgdata" ] || continue
+	name=$(basename "$c")
+
+        if [ "$USE_LSBINIT" ]; then
+            log_begin_msg "$3 $name"
+            pg_ctlcluster -s "$2" "$name" $1
+            log_end_msg $?
+        else
+            echo -n " $name"
+            ERRMSG="$ERRMSG\n"$(pg_ctlcluster -s "$2" "$name" $1 2>&1) || {
+                echo -n "(FAILED)"
+                fail=1 
+            }
+        fi
+    done
+    if [ "$fail" ]; then
+	[ -z "$ERRMSG" ] || echo -e "\n$ERRMSG" >&2
+	exit 1
+    fi
+
+    [ -z "$3" ] || [ "$USE_LSBINIT" ] || echo "."
+}
+
+# start all clusters of version $1
+# output according to Debian Policy for init scripts
+start() {
+    # create socket directory
+    if [ -d /var/run/postgresql ]; then
+        chmod 2775 /var/run/postgresql
+    else
+	install -d -m 2775 -o postgres -g postgres /var/run/postgresql
+    fi
+
+    do_ctl_all start "$1" "Starting PostgreSQL $1 database server:"
+}
+
+# stop all clusters of version $1
+# output according to Debian Policy for init scripts
+stop() {
+    do_ctl_all stop "$1" "Stopping PostgreSQL $1 database server:"
+}
+
+# restart all clusters of version $1
+# output according to Debian Policy for init scripts
+restart() {
+    do_ctl_all stop "$1" "Stopping PostgreSQL $1 database server:"
+    do_ctl_all start "$1" "Starting PostgreSQL $1 database server:"
+}
+
+# reload all clusters of version $1
+# output according to Debian Policy for init scripts
+reload() {
+    do_ctl_all reload "$1" "Reloading PostgreSQL $1 database server:"
+}
+
+status() {
+    pg_lsclusters
+}
+
+# start pg_autovacuum for all clusters of version $1
+autovac_start() {
+    do_ctl_all autovac-start "$1" "Starting PostgreSQL $1 autovacuum daemon:"
+}
+
+# stop pg_autovacuum for all clusters of version $1
+autovac_stop() {
+    do_ctl_all autovac-stop "$1" "Stopping PostgreSQL $1 autovacuum daemon:"
+}
+
+# restart pg_autovacuum for all clusters of version $1
+autovac_restart() {
+    do_ctl_all autovac-restart "$1" "Restarting PostgreSQL $1 autovacuum daemon:"
+}
+

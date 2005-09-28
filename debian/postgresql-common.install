@@ -1,0 +1,17 @@
+user_clusters etc/postgresql-common
+debian/init.d-functions usr/share/postgresql-common
+debian/maintscripts-functions usr/share/postgresql-common
+debian/autovacuum.conf etc/postgresql-common
+PgCommon.pm usr/share/postgresql-common
+pg_wrapper usr/share/postgresql-common
+pg_lsclusters usr/bin
+pg_createcluster usr/bin
+pg_dropcluster usr/bin
+pg_ctlcluster usr/bin
+pg_upgradecluster usr/bin
+pg_maintenance usr/sbin
+testsuite usr/share/postgresql-common
+tests/* usr/share/postgresql-common/tests
+upgrade-scripts/* usr/share/postgresql-common/upgrade-scripts
+run-upgrade-scripts usr/share/postgresql-common
+pg_checksystem usr/share/postgresql-common

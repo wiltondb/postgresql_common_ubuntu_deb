@@ -1,0 +1,79 @@
+#!/bin/sh
+
+SSL_CERT=/etc/postgresql-common/postgresql.crt
+SSL_KEY=/etc/postgresql-common/postgresql.pem
+SSL_ROOT=/etc/postgresql-common/root.crt
+
+# generate SSL certificate and key if openssl is installed and the certificate
+# does not yet exist.
+generate_ssl_key() {
+    [ -x /usr/bin/openssl ] || return 0
+    if [ ! -e $SSL_KEY -a ! -e $SSL_CERT ]; then
+        echo "Creating generic self-signed certificate: $SSL_CERT"
+        echo "(replace with hand-crafted or authorized one if needed)."
+        HOSTNAME=`hostname -s`
+        FQDN=`hostname -f`
+        MAILNAME=`cat /etc/mailname 2> /dev/null || hostname -f`
+        ( openssl req -new -x509 -days 365 -nodes -out $SSL_CERT -keyout $SSL_KEY > /dev/null 2>&1 <<EOF
+.
+.
+.
+PostgreSQL database server
+$FQDN
+$FQDN
+root@$MAILNAME
+EOF
+        chmod 0644 $SSL_CERT
+	chown postgres:postgres $SSL_KEY
+        chmod 0600 $SSL_KEY
+        ) || echo "Warning : Bad SSL config, can't generate certificate"
+    fi
+}
+
+if [ "$1" = configure ]; then
+    # Make sure the administrative user exists
+    if ! getent passwd postgres > /dev/null; then
+        adduser --system --quiet --home /var/lib/postgresql \
+            --shell /bin/bash --group --gecos "PostgreSQL administrator" postgres
+    fi
+
+    generate_ssl_key
+
+    # create default dummy root.crt if not present
+    if ! [ -e "$SSL_ROOT" ]; then
+        cat > "$SSL_ROOT" <<EOF
+This is a dummy root certificate file for PostgreSQL. To enable client side
+authentication, add some certificates to it. Client certificates must be signed
+with any certificate in this file to be accepted. 
+
+A reasonable choice is to just symlink this file to postgresql.crt; in this
+case, client certificates need to be signed by the postgresql server
+certificate, which might be desirable in many cases. See
+
+  file:///usr/share/doc/postgresql-doc-8.0/html/ssl-tcp.html
+
+for details (in package postgresql-doc-8.0).
+EOF
+    fi
+
+    # restart all servers
+    for v in $(ls /usr/lib/postgresql/); do
+        if [ -x "/etc/init.d/postgresql-$v" ]; then
+                if [ -x /usr/sbin/invoke-rc.d ]; then
+                        invoke-rc.d postgresql-$v restart || exit 0
+                else
+                        /etc/init.d/postgresql-$v restart || exit 0
+                fi
+        fi
+    done
+
+    if [ "$2" ]; then
+        /usr/share/postgresql-common/run-upgrade-scripts "$2" || true
+    fi
+
+    /usr/share/postgresql-common/pg_checksystem || true
+fi
+
+
+#DEBHELPER#
+

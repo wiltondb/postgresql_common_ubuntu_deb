@@ -1,0 +1,121 @@
+#!/usr/bin/perl -w
+# Call a PostgreSQL client program with the version, cluster and default
+# database specified in ~/.postgresqlrc or
+# /etc/postgresql-common/user_clusters.
+#
+# (C) 2005 Martin Pitt <mpitt@debian.org>
+
+use lib '/usr/share/postgresql-common';
+use PgCommon;
+
+@commands = qw/clusterdb createdb createlang createuser dropdb droplang dropuser pg_dump
+    pg_dumpall pg_restore psql reindexdb vacuumdb vacuumlo/;
+
+$cmd = (split '/', $0)[-1];
+grep { $cmd eq $_ } @commands or die "pg_wrapper: invalid command name $cmd";
+
+# Check for PGCLUSTER in %ENV
+if (defined $ENV{PGCLUSTER}) {
+    ($version, $cluster) = split ('/', $ENV{PGCLUSTER}, 2);
+    error 'Invalid version specified with $PGCLUSTER' unless $version;
+    error 'Invalid cluster specified with $PGCLUSTER' unless $cluster;
+    error 'Cluster specified with $PGCLUSTER does not exist' unless cluster_exists $version, $cluster;
+}
+
+# Check for --cluster argument and filter it out
+for ($i = 0; $i <= $#ARGV; ++$i) {
+    if ($ARGV[$i] eq '--cluster') {
+        error '--cluster option needs an argument (<version>/<cluster>)' if ($i >= $#ARGV);
+
+        ($version, $cluster) = split ('/', $ARGV[$i+1], 2);
+        error 'No version specified with --cluster' unless $version;
+        error 'No cluster specified with --cluster' unless $cluster;
+
+	error 'Cluster does not exist' unless cluster_exists $version, $cluster;
+
+        splice @ARGV, $i, 2;
+        last;
+    }
+}
+
+# Determine $version, $cluster, $db, $port from map files
+($version, $cluster, $db) = user_cluster_map() unless $cluster;
+if ($cluster) {
+    $port = get_cluster_port($version, $cluster);
+
+    unless ($ENV{'PGHOST'}) {
+        # default to cluster specific Unix socket directory
+        $ENV{'PGHOST'} = get_cluster_socketdir $version, $cluster;
+    }
+}
+
+$ENV{'PGPORT'} = "$port" if $port;
+$ENV{'PGDATABASE'} = $db if $db;
+
+error 'You must install at least one postgresql-client-<version> package.' unless $version; 
+
+@args = (get_program_path ($cmd, $version));
+error 'Invalid PostgreSQL cluster version' unless $args[0];
+push @args, @ARGV;
+exec @args;
+
+__END__
+
+=head1 NAME
+
+pg_wrapper - wrapper for PostgreSQL client commands
+
+=head1 SYNOPSIS
+
+I<client-program> [B<--cluster> I<version>/I<cluster>] [...]
+
+(I<client-program>: B<psql>, B<createdb>, B<dropuser>, and all other client
+programs installed in C</usr/lib/postgreqsl/>I<version>C</bin>).
+
+=head1 DESCRIPTION
+
+This program is run only as a link to names which correspond to PostgreSQL
+programs in C</usr/lib/postgresql/>I<version>C</bin>. It determines the
+configured cluster and database for the user and calls the appropriate version
+of the desired program to connect to that cluster and database, supplying any
+specifed options to that command.
+
+By default, the cluster is determined from the configuration files
+L<user_clusters(5)> and L<postgresqlrc(5)>. However, this can be overriden by
+specifying the C<$PGCLUSTER> environment variable or the B<--cluster>
+I<version>/I<cluster> option.
+
+=head1 ENVIRONMENT
+
+=over
+
+=item B<PGCLUSTER>
+
+If C<$PGCLUSTER> is set, its value (of the form I<version>/I<cluster>)
+specifies the desired cluster, similar to the B<--cluster> option. However, if
+B<--cluster> is specified, it overrides the value of C<$PGCLUSTER>.
+
+=back
+
+=head1 FILES
+
+=over
+
+=item C</etc/postgresql-common/user_clusters>
+
+stores the default cluster and database for users and groups as set by
+the administrators. 
+
+=item C<$HOME/.postgresqlrc>
+
+stores defaults set by the user himself.
+
+=back
+
+=head1 SEE ALSO
+
+L<user_clusters(5)>, L<postgresqlrc(5)>
+
+=head1 AUTHOR
+
+Martin Pitt L<E<lt>mpitt@debian.orgE<gt>>

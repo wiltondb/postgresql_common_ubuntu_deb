@@ -1,0 +1,132 @@
+PostgreSQL for Debian
+=====================
+
+PostgreSQL is the successor to Postgres95, which in turn succeeded POSTGRES.
+PostgreSQL is a relational database with object-oriented extensions.  It
+implements the greater part of SQL-92 and is intended to implement it in full;
+in addition it supports its own extended facilities.
+
+Since the on-disk data format of all major PostgreSQL versions (like 7.2, 7.4,
+8.0, etc.) is incompatible to each other, Debian's PostgreSQL packaging
+architecture is designed to maintain clusters of different major versions in
+parallel.
+
+This postgresql-common package provides the common infrastructure and all
+frontend programs that users and administrators use. The version specific
+server and client programs are shipped in postgresql-*-<version> packages.
+
+For a detailled description of the architecture, please see
+
+  /usr/share/doc/postgresql-common/architecture.html
+
+First steps for the impatient
+-----------------------------
+Eventually you will not get around reading at least some parts of the manual,
+but if you want to get straight into playing SQL, here are the steps to create
+a database user and a database for the Unix user 'joe':
+
+1. Install a database server with the major version of your choice,
+   preferrably the latest version (e. g. 'postgresql-8.0'). This will
+   automatically create a default cluster 'main' with the database
+   superuser 'postgres'.
+
+2. Get a shell for the database superuser 'postgres'. If your system has an
+   active root user, use su:
+
+   $ su -c "su -s /bin/sh postgres"
+
+   If your system uses sudo to get administrative rights, use sudo instead:
+
+   joe$ sudo -u postgres sh
+
+3. In this postgres shell, create a database user with the same name as your
+   Unix login:
+
+   $ createuser -A -D joe
+
+   For details about the options, see createuser(1).
+
+4. Create a database "joework" which is owned by "joe":
+
+   $ createdb -O joe joework
+
+   For details about the options, see createdb(1).
+
+5. Exit the postgres shell.
+
+6. As user joe, you should now be able to connect to your database with
+
+   $ psql joework
+
+
+Cluster management
+------------------
+For managing clusters, the following commands are provided (each with its own
+manual page):
+
+   pg_createcluster  - Create a new cluster or integrate an existing one into
+                       the postgresql-common architecture.
+   pg_dropcluster    - Completely remove a cluster.
+   pg_ctlcluster     - Control the server process of a cluster (start, stop,
+                       restart).
+   pg_lsclusters     - Show a list of all existing clusters and their status.
+   pg_upgradecluster - Migrate a cluster from one major version to another one.
+
+SSL
+---
+The PostgreSQL server packages support SSL, which provides encrypted and
+authenticated network communication. SSL should be used if you have an
+untrusted network between a database server and a client and these exchange
+security sensitive data like passwords or confident database contents.
+
+If the openssl package is installed when installing or upgrading
+postgresql-common, a self signed certificate (postgresql.crt) and a private key
+(postgresql.pem) is created in /etc/postgresql-common. If you have a "real"
+certificate with customized information fields and a signature from an official
+Certification Authority, you should replace these files with your own
+certificate and key.
+
+When a cluster is created with pg_createcluster, SSL support will
+automatically be enabled in that cluster, and symlinks "server.key"
+and "server.crt" are created in the data directory which point to the
+certificate in /etc/postgresql-common; therefore all clusters use the
+same certificate by default. Of course you can replace these symlinks
+by cluster-specific certificates. 
+
+In addition, if /etc/postgresql-common/root.crt exists, a symbolic
+link "root.crt" will be created in the data directory.
+/etc/postgresql-common/root.crt is a dummy file by default, so that
+client-side authentication is not performed. To enable it, you should
+add some root certificates to it. A reasonable choice is to just
+symlink the file to /etc/postgresql-common/postgresql.crt; in this
+case, client certificates need to be signed by the postgresql server
+certificate, which might be desirable in many cases. See
+
+  file:///usr/share/doc/postgresql-doc-8.0/html/ssl-tcp.html
+
+for details (in package postgresql-doc-8.0).
+
+Autovacuum daemon
+-----------------
+
+If you install the "postgresql-contrib-<version>" package, a "pg_autovacuum"
+daemon will be automatically started for every cluster. You can configure (or
+even disable) the autovacuum parameters globally in
+/etc/postgresql-common/autovacuum.conf. If you want to configure a cluster
+individually, copy this file into /etc/postgresql/<version>/<cluster>.
+
+Please note that the cron job that vacuums databases every 5 hours (see
+/etc/cron.d/postgresql-common) does not do anything for clusters with a running
+autovacuum daemon.
+
+Further documentation
+---------------------
+All commands shipped by postgresql-common have detailled manpages. See
+postgresql-common(7) for the documentation of the database client program
+wrapping, and user_clusters(5) and postgresqlrc(5) for the cluster
+configuration.
+
+The documentation of the database server and client functions, SQL commands,
+modules, etc.  documented is shipped in the per-version packages
+postgresql-doc-<version>.
+

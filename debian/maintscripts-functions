@@ -1,0 +1,65 @@
+# This file contains common functionality for all postgresql server
+# package maintainer scripts.
+
+# arguments: version package master
+_link_manpages() {
+    MANS=$(dpkg -L $2|egrep '/man/.*\.[1-9](\.gz)?$' | grep -v "$3")
+    SLAVES=$(for i in $MANS; do TARGET=$(echo $i | sed "s/postgresql\/$1\///"); echo -n " --slave $TARGET $(basename $i) $i"; done)
+    update-alternatives --install /usr/share/man/man1/$3 \
+	$3 /usr/share/postgresql/$1/man/man1/$3 \
+	$(echo "$1" | tr -cd 0-9) $SLAVES
+}
+
+_unlink_manpages() {
+    update-alternatives --remove $3 /usr/share/postgresql/$1/man/man1/$3
+}
+
+# arguments: <major version> <most recently configured package version>
+configure_version() {
+    VERSION="$1"
+
+    # Create a main cluster for given version ($1) if no cluster already exists
+    # for that version.
+    [ "$VERSION" ] || { echo "Error: configure_version: need version parameter" >&2; exit 1; }
+    if [ ! -d /etc/postgresql/$VERSION ] || [ -z "$(ls /etc/postgresql/$VERSION)" ]; then
+	# Only create the cluster on installation, not on upgrade.
+        [ "$2" ] || /usr/bin/pg_createcluster -u postgres $VERSION main
+    fi
+
+    _link_manpages "$VERSION" "postgresql-$VERSION" postmaster.1.gz
+}
+
+remove_version() {
+    _unlink_manpages "$1" "postgresql-$1" postmaster.1.gz
+}
+
+configure_client_version() {
+    _link_manpages "$1" "postgresql-client-$1" psql.1.gz
+}
+
+remove_client_version() {
+    _unlink_manpages "$1" "postgresql-client-$1" psql.1.gz
+}
+
+configure_contrib_version() {
+    if [ "$2" ]; then
+	cmd="autovac-restart"
+    else
+	cmd="autovac-start"
+    fi
+
+    if [ -x /usr/sbin/invoke-rc.d ]; then
+	    invoke-rc.d postgresql-$1 $cmd || exit 0
+    else
+	    /etc/init.d/postgresql-$1 $cmd || exit 0
+    fi
+}
+
+remove_contrib_version() {
+    if [ -x /usr/sbin/invoke-rc.d ]; then
+	    invoke-rc.d postgresql-$1 autovac-stop || exit 0
+    else
+	    /etc/init.d/postgresql-$1 autovac-stop || exit 0
+    fi
+}
+
