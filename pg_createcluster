@@ -47,7 +47,7 @@ sub init_db {
     }
 
     @initdb = ((get_program_path 'initdb', $_[0]), '-D', $datadir);
-    if ($_[0] >= 8) {
+    if ($_[0] ge '8.0') {
         push @initdb, ('-A', 'ident sameuser');
     }
     die 'Internal error: could not determine initdb path' unless $initdb[0];
@@ -174,10 +174,12 @@ sub setup_pg_hba {
 
 # command line arguments
 
+my $startconf = 'auto';
+
 exit 1 unless GetOptions ('u|user=s' => \$owneruid, 'g|group=s' => \$ownergid,
     's|socketdir=s' => \$socketdir, 'd|datadir=s' => \$datadir, 
     'start' => \$start, 'e|encoding=s' => \$encoding, 
-    'l|logfile=s' => \$custom_logfile);
+    'l|logfile=s' => \$custom_logfile, 'start-conf=s' => \$startconf);
 
 # check validity of locale
 unless (setlocale (LC_ALL, "")) {
@@ -198,9 +200,16 @@ Options:
                 /var/log/postgresql/postgresql-<version>-<cluster>.log)
   -e <encoding> Default encoding (default: derived from locale)
   --start       start the cluster after creating it
+  --start-conf auto|manual|disabled
+                Set automatic startup behaviour in start.conf (default: 'auto')
 ";
     exit 1;
 }
+
+error 'Invalid --start-conf value' if $startconf ne 'auto' &&
+    $startconf ne 'manual' && $startconf ne 'disabled';
+
+error 'This command needs to be executed as root' if $> != 0;
 
 if ($owneruid) {
     $owneruid = (getpwnam $owneruid)[2] unless $owneruid =~ /\d+/;
@@ -254,6 +263,9 @@ if (-f "$pgdata/PG_VERSION") {
     init_db $version, $pgdata, $owneruid, $ownergid;
     $newcluster = 1;
 }
+
+# create default "start" file
+set_cluster_start_conf $version, $cluster, $startconf;
 
 # move conffiles, setup permissions
 move_conffile "$datadir/pg_hba.conf", $confdir, $owneruid, $ownergid, "640";
@@ -316,7 +328,7 @@ $conf_fn =~tr/./_/;
 # create SSL certificate symlinks to the default certificate if it exists; if
 # so, enable SSL
 if ($newcluster && -e '/etc/postgresql-common/postgresql.crt' && 
-    -e '/etc/postgresql-common/postgresql.pem' &&
+    -e '/etc/postgresql-common/postgresql.pem' && $version ge '8.0' &&
     (stat '/etc/postgresql-common/postgresql.pem')[4] == (stat $datadir)[4]) {
     symlink '/etc/postgresql-common/postgresql.crt', $datadir.'/server.crt';
     symlink '/etc/postgresql-common/postgresql.pem', $datadir.'/server.key';
@@ -351,14 +363,21 @@ collection of databases served by a L<postmaster(1)> instance) and
 integrates it into the multi-version/multi-cluster architecture of the
 B<postgresql-common> package. 
 
-Given a major PostgreSQL I<version> (like "7.4" or "8.0") and a cluster I<name>
-(which must be unique for all clusters of one particular version), it creates
-the necessary configuration files in
+Every cluster is uniquely identified by its version and name. The name can be
+arbitrary. The default cluster that is created on installation of a server
+package is C<main>. However, you might wish to create other clusters for
+testing, with other superusers, a cluster for each user on a shared server,
+etc. C<pg_createcluster> will abort with an error if you try to create a
+cluster with a name that already exists for that version.
+
+Given a major PostgreSQL I<version> (like "7.4" or "8.0") and a cluster
+I<name>, it creates the necessary configuration files in
 C</etc/postgresql/>I<version>C</>I<name>C</>; in particular these are
-C<postgresql.conf>, C<pg_ident.conf>, C<pg_hba.conf>, a symbolic link
-C<pgdata> which points to the actual data directory I<data dir> (which defaults
-to C</var/lib/postgresql/>I<version>C</>I<name>C</>), and a symbolic link
-C<log> which points to the log file (by default,
+C<postgresql.conf>, C<pg_ident.conf>, C<pg_hba.conf>, a postgresql-common
+specific configuration file C<start.conf> (see B<STARTUP CONTROL> below), a
+symbolic link C<pgdata> which points to the actual data directory I<data dir>
+(which defaults to C</var/lib/postgresql/>I<version>C</>I<name>C</>), and a
+symbolic link C<log> which points to the log file (by default,
 C</var/log/postgresql/postgresql->I<version>C<->I<name>C<.log>).
 
 To enable easy integration of B<pg_autovacuum> for Servers prior to 8.1, this
@@ -434,6 +453,42 @@ documentation.
 Immediately start a server for the cluster after creating it (i. e. call
 C<pg_ctlcluster> I<version cluster> C<start> on it). By default, the cluster is
 not started.
+
+=item B<--start-conf>  B<auto>|B<manual>|B<disabled>
+
+Set the initial value in the C<start.conf> configuration file. See B<STARTUP
+CONTROL> below. By default, B<auto> is used, which means that the cluster is
+handled by C</etc/init.d/postgresql->I<version>, i. e. starts and stops
+automatically on system boot.
+
+=back
+
+=head1 STARTUP CONTROL
+
+The C<start.conf> file in the cluster configuration directory controls the
+start/stop behavior of that cluster's postmaster process. The file can contain
+comment lines (started with '#'), empty lines, and must have exactly one
+line with one of the following keywords:
+
+=over 4
+
+=item B<auto>
+
+The postmaster process is started/stopped automatically in the init script.
+This is also the default if the file is missing.
+
+=item B<manual>
+
+The postmaster process is not handled by the init script, but manually
+controlling the cluster with L<pg_ctlcluster(1)> is permitted.
+
+=item B<disable>
+
+Neither the init script nor L<pg_ctlcluster(1)> are permitted to start/stop the
+cluster. Please be aware that this will not stop the cluster owner from calling
+lower level tools to control the postmaster process; this option is only meant
+to prevent accidentially controlling the postmaster during maintenance and to
+prevent accidents, not more.
 
 =back
 

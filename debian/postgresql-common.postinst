@@ -1,4 +1,6 @@
-#!/bin/sh
+#!/bin/sh -e
+. /usr/share/debconf/confmodule
+db_stop
 
 SSL_CERT=/etc/postgresql-common/postgresql.crt
 SSL_KEY=/etc/postgresql-common/postgresql.pem
@@ -24,9 +26,9 @@ $FQDN
 root@$MAILNAME
 EOF
         chmod 0644 $SSL_CERT
-	chown postgres:postgres $SSL_KEY
-        chmod 0600 $SSL_KEY
-        ) || echo "Warning : Bad SSL config, can't generate certificate"
+	chown root:postgres $SSL_KEY
+        chmod 0640 $SSL_KEY
+        ) || echo "Warning : Bad SSL config, can't generate certificate" >&2
     fi
 }
 
@@ -36,6 +38,22 @@ if [ "$1" = configure ]; then
         adduser --system --quiet --home /var/lib/postgresql \
             --shell /bin/bash --group --gecos "PostgreSQL administrator" postgres
     fi
+
+    # check validity of postgres user and group
+    if [ "`id -u postgres`" -eq 0 ]; then
+        echo "The postgres system user must not have uid 0 (root).
+Please fix this and reinstall this package." >&2
+        exit 1
+    fi
+    if [ "`id -g postgres`" -eq 0 ]; then
+        echo "The postgres system user must not have root as primary group.
+Please fix this and reinstall this package." >&2
+        exit 1
+    fi
+
+    # create socket directory
+    [ -d /var/run/postgresql ] || \
+       install -d -m 2775 -o postgres -g postgres /var/run/postgresql
 
     generate_ssl_key
 

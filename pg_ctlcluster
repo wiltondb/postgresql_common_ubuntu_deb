@@ -81,7 +81,7 @@ sub start_check_pid_file {
     my $pidfile = $info{'pgdata'}.'/postmaster.pid';
     if (check_running_postmaster $pidfile) {
         print "Cluster is already running.\n";
-        exit (0);
+        exit 1;
     }
 
     # Remove invalid or stale PID file
@@ -102,11 +102,35 @@ sub stop_check_pid_file {
     error 'cluster is not running';
 }
 
+# check if a cluster reliably connects or fails
+# Arguments: <version> <cluster> <port> <socket dir>
+sub cluster_port_ready {
+    my ($v, $c, $p, $sd) = @_;
+    my $psql = get_program_path 'psql', $v;
+    error 'cluster_port_ready: could not find psql binary' unless $psql;
+    my $n = 0;
+    my $result = 0;
+
+    # probe until we get three successful or failed connections in a row
+    while ($n < ($result ? 10 : 3)) {
+        select undef, undef, undef, 0.5;
+        system "$psql -h '$sd' --port $p -l >/dev/null 2>&1";
+        if ($? == $result) {    
+            $n++;
+        } else {
+            $n = 0;
+        }
+        $result = $?;
+    }
+
+    return !$result;
+}
+
 sub autovacuum_start {
+    return unless $info{'avac_enable'} and $version < 8.1;
+
     error "pg_autovacuum not found. Install postgresql-contrib-$version to get it" 
         unless $pg_autovacuum;
-
-    return unless $info{'avac_enable'} and $version < 8.1;
 
     return if -f $info{'pgdata'}.'/autovacuum.pid';
 
@@ -175,10 +199,10 @@ sub autovacuum_start {
 }
 
 sub autovacuum_stop {
+    return unless $info{'avac_enable'} and $version < 8.1;
+
     error "pg_autovacuum not found. Install postgresql-contrib-$version to get it" 
         unless $pg_autovacuum;
-
-    return unless $info{'avac_enable'} and $version < 8.1;
 
     if (open my $AVAC_PID, $info{'pgdata'}.'/autovacuum.pid') {
         $pid = <$AVAC_PID>;
@@ -218,7 +242,7 @@ sub start {
     my $postmaster_opts = '-c unix_socket_directory="' . $info{'socketdir'} . '"';
 
     # versions 8.0+ support configurable conffile locations
-    if ($version >= 8) {
+    if ($version ge '8.0') {
         $postmaster_opts .= " -c config_file=\"$cdir/postgresql.conf\" -c hba_file=\"$cdir/pg_hba.conf\" -c ident_file=\"$cdir/pg_ident.conf\""; 
     }
 
@@ -229,7 +253,13 @@ sub start {
     $logsize = 0;
     $logsize = (stat $info{'logfile'})[7] if -r $info{'logfile'};
 
-    system $pg_ctl @options;
+    if (fork) {
+        wait;
+        error "could not exec $pgctl @options: $!" if $?;
+    } else {
+        setsid or error "could not start session: $!";
+        exec $pg_ctl @options or error "could not exec $pgctl @options: $!";
+    }
 
     # wait a bit until the socket exists
     $success = 0;
@@ -248,9 +278,13 @@ sub start {
         last if ($currlogsize > $logsize && !check_running_postmaster $pidfile);
     }
 
+    # OK, the server runs, now wait until it stabilized
+    if ($success)  {
+        $success = cluster_port_ready $version, $cluster, $info{'port'}, $info{'socketdir'};
+    }
+
     if ($success) {
-        if ($version < 8.1 && $info{'avac_enable'} && $pg_autovacuum) {
-            sleep 1;
+        if ($version lt '8.1' && $info{'avac_enable'} && $pg_autovacuum) {
             autovacuum_start;
         }
     } else {
@@ -309,7 +343,8 @@ sub reload {
 ($version, $cluster, $action) = @ARGV;
 %info = cluster_info ($version, $cluster);
 
-error "specified cluster does not exist" unless $info{'pgdata'};
+error 'specified cluster does not exist' unless $info{'pgdata'};
+error 'Cluster is disabled' if $info{'start'} eq 'disabled';
 
 # check that owner uig/gid is valid
 unless (getpwuid $info{'owneruid'}) {

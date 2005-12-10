@@ -5,14 +5,12 @@
 #
 # (C) 2005 Martin Pitt <mpitt@debian.org>
 
+use strict;
+
 use lib '/usr/share/postgresql-common';
 use PgCommon;
 
-@commands = qw/clusterdb createdb createlang createuser dropdb droplang dropuser pg_dump
-    pg_dumpall pg_restore psql reindexdb vacuumdb vacuumlo/;
-
-$cmd = (split '/', $0)[-1];
-grep { $cmd eq $_ } @commands or die "pg_wrapper: invalid command name $cmd";
+my ($version, $cluster, $db, $port);
 
 # Check for PGCLUSTER in %ENV
 if (defined $ENV{PGCLUSTER}) {
@@ -23,7 +21,7 @@ if (defined $ENV{PGCLUSTER}) {
 }
 
 # Check for --cluster argument and filter it out
-for ($i = 0; $i <= $#ARGV; ++$i) {
+for (my $i = 0; $i <= $#ARGV; ++$i) {
     if ($ARGV[$i] eq '--cluster') {
         error '--cluster option needs an argument (<version>/<cluster>)' if ($i >= $#ARGV);
 
@@ -49,15 +47,16 @@ if ($cluster) {
     }
 }
 
-$ENV{'PGPORT'} = "$port" if $port;
+$ENV{'PGPORT'} = "$port" if $port && !$ENV{'PGPORT'};
 $ENV{'PGDATABASE'} = $db if $db;
 
 error 'You must install at least one postgresql-client-<version> package.' unless $version; 
 
-@args = (get_program_path ($cmd, $version));
-error 'Invalid PostgreSQL cluster version' unless $args[0];
-push @args, @ARGV;
-exec @args;
+error 'Invalid PostgreSQL cluster version' unless -d "/usr/lib/postgresql/$version";
+my $cmd = get_program_path (((split '/', $0)[-1]), $version);
+error 'pg_wrapper: invalid command name' unless $cmd;
+unshift @ARGV, $cmd;
+exec @ARGV;
 
 __END__
 

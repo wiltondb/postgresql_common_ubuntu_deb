@@ -18,6 +18,8 @@ if ($#ARGV != 1) {
     exit 1;
 }
 
+error 'This command needs to be executed as root' if $> != 0;
+
 ($version, $cluster) = @ARGV;
 
 %info = cluster_info ($version, $cluster);
@@ -44,7 +46,7 @@ if ($info{'pgdata'} && -d $info{'pgdata'}) {
     print STDERR "warning: corrupted cluster: data directory does not exist\n";
 }
 unlink $c.'/pg_hba.conf', $c.'/pg_ident.conf', $c.'/postgresql.conf',
-    $c.'/log', $c.'/autovacuum_log', $c.'/pgdata';
+    $c.'/start.conf', $c.'/log', $c.'/autovacuum_log', $c.'/pgdata';
 unlink $info{'logfile'} if defined ($info{'logfile'});
 unlink $info{'avac_logfile'} if defined ($info{'avac_logfile'});
 rmdir $c;

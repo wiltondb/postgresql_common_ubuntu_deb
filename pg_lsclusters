@@ -5,8 +5,9 @@
 
 use lib '/usr/share/postgresql-common';
 use PgCommon;
+use Getopt::Long;
 
-$show_header = 1;
+exit 1 unless GetOptions ('h|no-header' => \$no_header);
 
 @columns = ('Version', 'Cluster', 'Port', 'Status', 'Owner', 'Data directory',
             'Log file');
@@ -17,7 +18,7 @@ foreach $cw (@colwidths) {
 }
 $fmtstring .= "\n";
 
-printf $fmtstring, @columns;
+printf $fmtstring, @columns unless $no_header;
 
 foreach $v (get_versions) {
     foreach $c (get_version_clusters $v) {
@@ -37,11 +38,19 @@ pg_lsclusters - show information about all PostgreSQL clusters
 
 =head1 SYNOPSIS
 
-B<pg_lsclusters>
+B<pg_lsclusters> [I<options>]
 
 =head1 DESCRIPTION
 
 This command shows a list about the configuration and status of all clusters.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-h>, B<--no-header>
+
+Do not print the column header line.
 
 =head1 AUTHOR
 

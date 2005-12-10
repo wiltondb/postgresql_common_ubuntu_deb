@@ -4,10 +4,15 @@
 #
 # (C) 2005 Martin Pitt <mpitt@debian.org>
 
+use strict;
+
 use lib '/usr/share/postgresql-common';
 use PgCommon;
 use Getopt::Long;
 use POSIX;
+
+my ($version, $newversion, $cluster);
+my (%info, %newinfo);
 
 sub adapt_conffiles {
     # tcpip_socket transition
@@ -33,6 +38,17 @@ sub adapt_conffiles {
         PgCommon::replace_conf_value $newversion, $cluster, 'postgresql.conf',
             'syslog', 'deprecated in favor of log_destination',
             'log_destination', $syslog_values{$syslog};
+    }
+
+    # sort_mem -> work_mem transition
+    if ($newversion ge '8.0') {
+        my $sort_mem = PgCommon::get_conf_value $newversion, $cluster,
+                'postgresql.conf', 'sort_mem';
+        if (defined $sort_mem) {
+            PgCommon::replace_conf_value $newversion, $cluster,
+                'postgresql.conf', 'sort_mem', 'deprecated in favor of work_mem', 
+                'work_mem', $sort_mem;
+        }
     }
 
     # log_statement transition
@@ -79,6 +95,16 @@ sub adapt_conffiles {
             'log_line_prefix', $log_line_prefix;
     }
 
+    # obsolete rendezvous_name 
+    if ($newversion ge '8.1') {
+        my $rendezvous_name = PgCommon::get_conf_value $newversion, $cluster,
+                'postgresql.conf', 'rendezvous_name';
+        if (defined $rendezvous_name) {
+            PgCommon::disable_conf_value $newversion, $cluster, 'postgresql.conf',
+                    'rendezvous_name', 'obsolete in 8.1';
+        }
+    }
+
     # obsolete max_expr_depth
     my $max_expr_depth = PgCommon::get_conf_value $newversion, $cluster,
             'postgresql.conf', 'max_expr_depth';
@@ -87,6 +113,64 @@ sub adapt_conffiles {
                 'max_expr_depth',
                 'does not exist any more, look at max_stack_depth';
     }
+
+    # 8.1+ has internal autovacuum
+    if ($newversion ge '8.1') {
+        PgCommon::set_conf_value $newversion, $cluster, 'postgresql.conf',
+            'autovacuum', $info{'avac_enable'} ? 'yes' : 'no';
+    }
+
+    # bgwriter_percent -> bgwriter_{lru,all}_percent transition
+    if ($newversion ge '8.1') {
+        my $bgwriter_percent = PgCommon::get_conf_value $newversion, $cluster,
+                'postgresql.conf', 'bgwriter_percent';
+        if (defined $bgwriter_percent) {
+            PgCommon::replace_conf_value $newversion, $cluster,
+                'postgresql.conf', 'bgwriter_percent', 
+                'deprecated in favor of bgwriter_{lru,all}_percent', 
+                'bgwriter_all_percent', $bgwriter_percent;
+        }
+    }
+
+    # bgwriter_maxpages -> bgwriter_{lru,all}_maxpages transition
+    if ($newversion ge '8.1') {
+        my $bgwriter_maxpages = PgCommon::get_conf_value $newversion, $cluster,
+                'postgresql.conf', 'bgwriter_maxpages';
+        if (defined $bgwriter_maxpages) {
+            PgCommon::replace_conf_value $newversion, $cluster,
+                'postgresql.conf', 'bgwriter_maxpages', 
+                'deprecated in favor of bgwriter_{lru,all}_maxpages', 
+                'bgwriter_all_maxpages', $bgwriter_maxpages;
+        }
+    }
+}
+
+# Save original pg_hba.conf, replace it with one that only allows local access
+# to the owner, and reload postmaster.
+# Arguments: <version> <cluster> <owner>
+sub disable_connections {
+    my $hba = "/etc/postgresql/$_[0]/$_[1]/pg_hba.conf";
+
+    rename $hba, "$hba.orig" or error 'could not rename pg_hba.conf';
+    unless (open F, ">$hba") {
+        rename "$hba.orig", $hba; 
+        error "could not create $hba";
+    }
+    print F "local all $_[2] ident sameuser";
+    close F;
+
+    if (system 'pg_ctlcluster', '-s', $_[0], $_[1], 'reload') {
+        rename "$hba.orig", $hba; 
+        error "could not reload cluster $_[0]/$_[1]";
+    }
+}
+
+# Restore original pg_hba.conf, but do not restart postmaster.
+# Arguments: <version> <cluster>
+sub enable_connections {
+    my $hba = "/etc/postgresql/$_[0]/$_[1]/pg_hba.conf";
+
+    rename "$hba.orig", $hba or error 'could not rename pg_hba.conf';
 }
 
 #
@@ -104,14 +188,17 @@ if ($#ARGV < 1) {
     exit 1;
 }
 
-($version, $cluster, $datadir) = @ARGV;
-%info = cluster_info ($version, $cluster);
-error 'specified cluster does not exist' unless $info{'pgdata'};
-error 'specified cluster is not running' unless $info{'running'};
+error 'This command needs to be executed as root' if $> != 0;
 
-$encoding = get_db_encoding $version, $cluster, 'template1';
+($version, $cluster, my $datadir) = @ARGV;
+error 'specified cluster does not exist' unless cluster_exists $version, $cluster;
+%info = cluster_info ($version, $cluster);
+error 'specified cluster is not running' unless $info{'running'};
+error 'cluster is disabled' if $info{'start'} eq 'disabled';
+
+my $encoding = get_db_encoding $version, $cluster, 'template1';
 error 'could not get cluster default encoding' unless $encoding;
-($lc_ctype, $lc_collate) = get_cluster_locales $version, $cluster;
+my ($lc_ctype, $lc_collate) = get_cluster_locales $version, $cluster;
 error 'could not get cluster locale' unless $lc_ctype;
 error 'could not get cluster collating locale' unless $lc_ctype;
 
@@ -121,7 +208,7 @@ if (PgCommon::cluster_data_directory $newversion, $cluster) {
 
 # create new cluster, preserving encoding and locales
 
-@argv = ('pg_createcluster', '-u', $info{'owneruid'}, '-g', $info{'ownergid'},
+my @argv = ('pg_createcluster', '-u', $info{'owneruid'}, '-g', $info{'ownergid'},
     '--socketdir', $info{'socketdir'}, '--encoding', $encoding, $newversion,
     $cluster);
 push @argv, $datadir if $datadir;
@@ -138,36 +225,123 @@ sleep(4);
 
 %newinfo = cluster_info($newversion, $cluster);
 
-# dump cluster; drop to cluster owner privileges
+# Disable access to clusters during upgrade
+my $owner = getpwuid $info{'owneruid'};
+error 'could not get name of cluster owner' unless $owner;
+print "Disabling connections to the old cluster during upgrade...\n";
+disable_connections $version, $cluster, $owner;
+print "Disabling connections to the new cluster during upgrade...\n";
+disable_connections $newversion, $cluster, $owner;
 
-print "Dumping the old cluster into the new one...\n";
+# dump cluster; drop to cluster owner privileges
 
 if (!fork) {
     change_ugid $info{'owneruid'}, $info{'ownergid'};
-    $pg_dumpall = get_program_path 'pg_dumpall', $newversion;
-    $psql = get_program_path 'psql', $newversion;
-    $oldsocket = get_cluster_socketdir $version, $cluster;
-    $newsocket = get_cluster_socketdir $newversion, $cluster;
+    my $pg_dumpall = get_program_path 'pg_dumpall', $newversion;
+    my $pg_dump = get_program_path 'pg_dump', $newversion;
+    my $pg_restore = get_program_path 'pg_restore', $newversion;
+    my $oldpsql = get_program_path 'psql', $version;
+    my $psql = get_program_path 'psql', $newversion;
+    my $oldsocket = get_cluster_socketdir $version, $cluster;
+    my $newsocket = get_cluster_socketdir $newversion, $cluster;
+    my $buffer;
 
-    open SOURCE, '-|', $pg_dumpall, '-h', $oldsocket, '-p', $info{'port'} or 
-	error 'Could not execute pg_dumpall for old cluster';
-    open SINK, '|-', $psql, '-h', $newsocket, '-q', '-p', $newinfo{'port'},
-        '-d', 'template1' or 
+    # get list of databases and allowed connections
+    my %databases;
+    open F, '-|', $oldpsql, '-h', $oldsocket, '-p', $info{'port'}, 
+        '-F|', '-d', 'template1', '-Atc', 
+        'select datname, datallowconn from pg_database' or 
+        error 'Could not get pg_database list';
+    while (<F>) {
+        chomp;
+        my ($n, $a) = split '\|';
+        $databases{$n} = ($a eq 't');
+    }
+    close F;
+    error 'could not get list of databases' if $?;
+
+    # Upgrade roles (global objects)
+    print "Creating globals...\n";
+    open SOURCE, '-|', $pg_dumpall, '-h', $oldsocket, '-p', $info{'port'},
+         '-g', '-c' or 
+        error 'Could not execute pg_dumpall for old cluster';
+    open SINK, '|-', $psql, '-h', $newsocket, '-p', $newinfo{'port'},
+        '-q', '-d', 'template1' or 
         error 'Could not execute psql for new cluster';
-    while (read SOURCE, $buffer, 16384) {
-	print SINK $buffer;
+    while (read SOURCE, $buffer, 1048576) {
+        print SINK $buffer;
     }
     close SOURCE;
     ($? == 0) or exit 1;
     close SINK;
     ($? == 0) or exit 1;
+    
+    # Upgrade databases
+    for my $db (keys %databases) {
+        next if $db eq 'template0';
+        unless ($databases{$db}) {
+            print "Temporary enabling access to database $db\n";
+            (system $oldpsql, '-h', $oldsocket, '-p', $info{'port'}, '-q', 
+                '-d', 'template1', '-c', 
+                "update pg_database set datallowconn = 't' where datname = '$db'") == 0 or
+                error 'Could not enable access to database';
+        }
+
+        print 'Upgrading database ', $db, "...\n";
+        open SOURCE, '-|', $pg_dump, '-h', $oldsocket, '-p', $info{'port'},
+             '-Fc', $db or 
+            error 'Could not execute pg_dump for old cluster';
+        open SINK, '|-', $pg_restore, '-h', $newsocket, '-p', $newinfo{'port'},
+            '-d', 'template1', '-C' or 
+            error 'Could not execute pg_restore for new cluster';
+        while (read SOURCE, $buffer, 1048576) {
+            print SINK $buffer;
+        }
+        close SOURCE;
+        ($? == 0) or exit 1;
+        close SINK;
+        print "Fixing hardcoded library paths for stored procedures...\n";
+        (system $psql, '-h', $newsocket, '-p', $newinfo{'port'}, '-q', '-d',
+            $db, '-c', "update pg_proc set probin = decode(replace(\
+                replace(encode(probin, 'escape'), '/usr/lib/postgresql/lib', '\$libdir'), \
+                '/usr/lib/postgresql/$version/lib', '\$libdir'), 'escape')") == 0 or
+            error 'Could not fix library paths';
+        # FIXME: we will get an error on template1 since it already exists
+        exit 1 if $db ne 'template1' && $? != 0;
+        print 'Analyzing database ', $db, "...\n";
+        (system $psql, '-h', $newsocket, '-p', $newinfo{'port'}, '-q', 
+            '-d', $db, '-c', 'ANALYZE') == 0 or
+            error 'Could not ANALZYE database';
+
+        unless ($databases{$db}) {
+            print "Disabling access to database $db\n";
+            (system $oldpsql, '-h', $oldsocket, '-p', $info{'port'}, '-q', 
+                '-d', 'template1', '-c', 
+                "update pg_database set datallowconn = 'f' where datname = '$db'") == 0 or
+                error 'Could not disable access to database in old cluster';
+            (system $psql, '-h', $newsocket, '-p', $newinfo{'port'}, '-q', 
+                '-d', 'template1', '-c', 
+                "update pg_database set datallowconn = 'f' where datname = '$db'") == 0 or
+                error 'Could not disable access to database in new cluster';
+        }
+    }
     exit 0;
 }
+
+print "Re-enabling connections to the old cluster...\n";
+enable_connections $version, $cluster;
+print "Re-enabling connections to the new cluster...\n";
+enable_connections $newversion, $cluster;
 
 wait;
 if ($?) {
     print STDERR "Error during cluster dumping, removing new cluster\n";
     system 'pg_dropcluster', '--stop-server', $newversion, $cluster;
+
+    # Reload old cluster to allow connections again
+    if (system 'pg_ctlcluster', '-s', $version, $cluster, 'reload') {
+        error 'could not reload old cluster, please do that manually';
+    }
     exit 1;
 }
 
@@ -179,6 +353,11 @@ install_file $info{'configdir'}.'/pg_ident.conf', $newinfo{'configdir'},
     $newinfo{'owneruid'}, $newinfo{'ownergid'}, "640";
 install_file $info{'configdir'}.'/pg_hba.conf', $newinfo{'configdir'},
     $newinfo{'owneruid'}, $newinfo{'ownergid'}, "640";
+if ( -e $info{'configdir'}.'/start.conf') {
+    print "Copying old start.conf...\n";
+    install_file $info{'configdir'}.'/start.conf', $newinfo{'configdir'},
+	$newinfo{'owneruid'}, $newinfo{'ownergid'}, "644";
+}
 
 adapt_conffiles;
 
@@ -190,7 +369,20 @@ print "Stopping old cluster...\n";
 @argv = ('pg_ctlcluster', '-s', $version, $cluster, 'stop');
 error "Could not stop old cluster" if system @argv;
 
-$oldport = next_free_port;
+print "Disabling automatic startup of old cluster...\n";
+my $startconf = $info{'configdir'}.'/start.conf';
+if (open F, ">$startconf") {
+    print F "# This cluster was upgraded to a newer major version. The old
+# cluster has been preserved for backup purposes, but is not started
+# automatically.
+
+manual";
+    close F;
+} else {
+    error "could not create $startconf: $!";
+}
+
+my $oldport = next_free_port;
 print "Configuring old cluster to use a different port ($oldport)...\n";
 set_cluster_port $version, $cluster, $oldport;
 
