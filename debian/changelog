@@ -1,3 +1,17 @@
+postgresql-common (38) unstable; urgency=low
+
+  * pg_ctlcluster: Remove --setuid option, it does not make too much sense
+    after all and only confuses users. Closes: #343063
+  * Remove pg_ctlcluster's -s option from all scripts.
+  * pg_wrapper: Fix 'postgreqsl' typo in POD. Closes: #343938
+  * pg_createcluster: Do not simply close STDOUT, but reopen it to /dev/null
+    to avoid initdb complaining about invalid filehandles. Closes: #344180
+  * debian/init.d-functions: Check if the requested version's postmaster is
+    available before trying to start/stop a cluster to avoid errors when a
+    server package is removed, but not purged. Closes: #343730
+
+ -- Martin Pitt <mpitt@debian.org>  Thu, 22 Dec 2005 18:41:23 +0100
+
 postgresql-common (37) unstable; urgency=low
 
   * debian/postgresql-common.config: Only show the obsolete version warning

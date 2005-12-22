@@ -62,6 +62,7 @@ sub init_db {
     } else{
         close STDOUT;
         change_ugid $_[2], $_[3];
+        open STDOUT, ">/dev/null";
         exec @initdb;
     }
 }
@@ -343,7 +344,7 @@ if ($newcluster && -e '/etc/postgresql-common/root.crt') {
 
 # start it if requested
 if ($start) {
-    system '/usr/bin/pg_ctlcluster', '-s', $version, $cluster, 'start';
+    system '/usr/bin/pg_ctlcluster', $version, $cluster, 'start';
 }
 
 __END__
