@@ -11,7 +11,7 @@ our @ISA = ('Exporter');
 our @EXPORT = qw/error user_cluster_map get_cluster_port set_cluster_port
     get_cluster_socketdir set_cluster_socketdir cluster_port_running
     get_cluster_start_conf set_cluster_start_conf
-    get_program_path cluster_info get_versions get_newest_version
+    get_program_path cluster_info get_versions get_newest_version version_exists
     get_version_clusters next_free_port cluster_exists install_file
     change_ugid config_bool get_db_encoding get_cluster_locales
     get_cluster_databases/;
@@ -287,6 +287,8 @@ sub set_cluster_start_conf {
     error "Invalid mode: '$val'" unless $val eq 'auto' || 
 	    $val eq 'manual' || $val eq 'disabled';
 
+    my $perms = 0644;
+
     # start.conf setting
     my $start_conf = "$confroot/$_[0]/$_[1]/start.conf";
     my $text;
@@ -299,6 +301,10 @@ sub set_cluster_start_conf {
                 $text .= $_;
             }
 	}
+
+        # preserve permissions if it already exists
+        $perms = (stat F)[2];
+        error "Could not get permissions of $start_conf: $!" unless $perms;
 	close F;
     } else {
         $text = "# Automatic startup configuration
@@ -314,6 +320,7 @@ $val
     }
 
     open F, '>' . $start_conf or error "Could not open $start_conf for writing: $!";
+    chmod $perms, $start_conf;
     print F $text;
     close F;
 }
@@ -377,6 +384,11 @@ sub get_newest_version {
     my $newest = 0;
     map { $newest = $_ if $newest < $_ } get_versions;
     return $newest;
+}
+
+# Check whether a version exists
+sub version_exists {
+    return (grep { $_ eq $_[0] } get_versions) ? 1 : 0;
 }
 
 # Return an array of all available clusters of given version
