@@ -9,11 +9,12 @@
 do_ctl_all() {
     [ "$1" ] || { echo "Error: invalid command '$1'" >&2; exit 1; }
     [ "$2" ] || { echo "Error: invalid version '$2'" >&2; exit 1; }
-    [ -d "/etc/postgresql/$2" ] || return
-    [ "$(ls /etc/postgresql/$2)" ] || return
-    [ -x "/usr/lib/postgresql/$2/bin/postmaster" ] || return
+    [ -d "/etc/postgresql/$2" ] || return 0
+    [ "$(ls /etc/postgresql/$2)" ] || return 0
+    [ -x "/usr/lib/postgresql/$2/bin/postmaster" ] || return 0
 
-    unset fail
+    status=0
+    log_daemon_msg "$3"
     for c in /etc/postgresql/"$2"/*; do
 	[ -e "$c/pgdata" ] || continue
 	name=$(basename "$c")
@@ -26,14 +27,19 @@ do_ctl_all() {
 	fi
 	[ "$start" = "auto" ] || continue
 
-        log_begin_msg "$3 $name"
-        pg_ctlcluster "$2" "$name" $1
-        log_end_msg $?
+        log_progress_msg "$name"
+	set +e
+        ERRMSG=$(pg_ctlcluster "$2" "$name" $1 2>&1)
+	res=$?
+	set -e
+	# Do not fail on success or if cluster is already/not running
+	[ $res -eq 0 ] || [ $res -eq 2 ] || status=$(($status || $res))
     done
-    if [ "$fail" ]; then
-	[ -z "$ERRMSG" ] || echo -e "\n$ERRMSG" >&2
-	exit 1
+    if [ $status -ne 0 -a -n "$ERRMSG" ]; then
+	log_failure_msg "$ERRMSG"
     fi
+    log_end_msg $status
+    return $status
 }
 
 # start all clusters of version $1
@@ -46,26 +52,25 @@ start() {
 	install -d -m 2775 -o postgres -g postgres /var/run/postgresql
     fi
 
-    do_ctl_all start "$1" "Starting PostgreSQL $1 database server:"
+    do_ctl_all start "$1" "Starting PostgreSQL $1 database server"
 }
 
 # stop all clusters of version $1
 # output according to Debian Policy for init scripts
 stop() {
-    do_ctl_all stop "$1" "Stopping PostgreSQL $1 database server:"
+    do_ctl_all stop "$1" "Stopping PostgreSQL $1 database server"
 }
 
 # restart all clusters of version $1
 # output according to Debian Policy for init scripts
 restart() {
-    do_ctl_all stop "$1" "Stopping PostgreSQL $1 database server:"
-    do_ctl_all start "$1" "Starting PostgreSQL $1 database server:"
+    do_ctl_all restart "$1" "Restarting PostgreSQL $1 database server"
 }
 
 # reload all clusters of version $1
 # output according to Debian Policy for init scripts
 reload() {
-    do_ctl_all reload "$1" "Reloading PostgreSQL $1 database server:"
+    do_ctl_all reload "$1" "Reloading PostgreSQL $1 database server"
 }
 
 status() {
@@ -74,16 +79,15 @@ status() {
 
 # start pg_autovacuum for all clusters of version $1
 autovac_start() {
-    do_ctl_all autovac-start "$1" "Starting PostgreSQL $1 autovacuum daemon:"
+    do_ctl_all autovac-start "$1" "Starting PostgreSQL $1 autovacuum daemon"
 }
 
 # stop pg_autovacuum for all clusters of version $1
 autovac_stop() {
-    do_ctl_all autovac-stop "$1" "Stopping PostgreSQL $1 autovacuum daemon:"
+    do_ctl_all autovac-stop "$1" "Stopping PostgreSQL $1 autovacuum daemon"
 }
 
 # restart pg_autovacuum for all clusters of version $1
 autovac_restart() {
-    do_ctl_all autovac-restart "$1" "Restarting PostgreSQL $1 autovacuum daemon:"
+    do_ctl_all autovac-restart "$1" "Restarting PostgreSQL $1 autovacuum daemon"
 }
-

@@ -9,11 +9,11 @@ use Test::More;
 our $VERSION = 1.00;
 our @ISA = ('Exporter');
 our @EXPORT = qw/ps ok_dir exec_as deb_installed is_program_out
-    like_program_out unlike_program_out @MAJORS/;
+    like_program_out unlike_program_out pidof pid_env check_clean @MAJORS/;
 
 use lib '/usr/share/postgresql-common';
-use PgCommon qw/get_versions/;
-our @MAJORS = get_versions;
+use PgCommon qw/get_versions change_ugid/;
+our @MAJORS = sort (get_versions());
 
 # Return whether a given deb is installed.
 # Arguments: <deb name>
@@ -32,12 +32,43 @@ sub ps {
     return `ps h -o user,group,args -C $_[0] | grep '$_[0]' | sort -u`;
 }
 
+# Return array of pids that match the given command line
+sub pidof {
+    open F, '-|', 'ps', 'h', '-C', $_[0], '-o', 'pid,cmd' or die "open: $!";
+    my @pids;
+    while (<F>) {
+        if ((index $_, $_[0]) >= 0) {
+            push @pids, (split)[0];
+        }
+    }
+    close F;
+    return @pids;
+}
+
 # Return an reference to an array of all entries but . and .. of the given directory.
 sub dircontent {
     opendir D, $_[0] or die "opendir: $!";
     my @e = grep { $_ ne '.' && $_ ne '..' } readdir (D);
     closedir D;
     return \@e;
+}
+
+# Return environment of given PID
+sub pid_env {
+    my $path = "/proc/$_[0]/environ";
+    my @lines;
+    open E, $path or die "open $path: $!";
+    {
+        local $/;
+        @lines = split '\0', <E>;
+    }
+    close E;
+    my %env;
+    foreach (@lines) {
+        my ($k, $v) = (split '=');
+        $env{$k} = $v;
+    }
+    return %env;
 }
 
 # Check the contents of a directory.
@@ -63,13 +94,12 @@ sub exec_as {
     } else {
 	$uid = getpwnam $_[0] or die "TestLib::exec_as: target user '$_[0]' does not exist";
     }
-    $< = $uid;
-    $> = $uid;
+    change_ugid ($uid, (getpwuid $uid)[3]);
     die "changing euid: $!" if $> != $uid;
     my $out = `$_[1] 2>&1`;
     my $result = $? >> 8;
-    $> = 0;
-    $< = 0;
+    $< = $> = 0;
+    $( = $) = 0;
     die "changing euid back to root: $!" if $> != 0;
     $_[2] = \$out;
 
@@ -108,4 +138,23 @@ sub unlike_program_out {
     my $result = exec_as $_[0], $_[1], $outref;
     is $result, $_[2], $_[1];
     unlike ($$outref, $_[3], (defined $_[4] ? $_[4] : "correct output of $_[1]"));
+}
+
+# Check that all PostgreSQL related directories are empty and no
+# postmaster/pg_autovacuum processes are running. Should be called at the end
+# of all tests. Does 7 tests.
+sub check_clean {
+    is (`pg_lsclusters -h`, '', 'No existing clusters');
+    is ((ps 'postmaster'), '', 'No postmaster processes left behind');
+    is ((ps 'pg_autovacuum'), '', 'No pg_autovacuum processes left behind');
+
+    my @check_dirs = ('/etc/postgresql', '/var/lib/postgresql',
+        '/var/run/postgresql', '/var/log/postgresql');
+    foreach (@check_dirs) {
+        if (-d) {
+            ok_dir $_, [], "No files in $_ left behind";
+        } else {
+            pass "Directory $_ does not exist";
+        }
+    }
 }

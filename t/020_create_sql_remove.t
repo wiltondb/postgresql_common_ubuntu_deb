@@ -1,4 +1,3 @@
-#!/usr/bin/perl -w
 # We create a cluster, execute some basic SQL commands, drop it again, and
 # check that we did not leave anything behind.
 
@@ -10,7 +9,7 @@ use TestLib;
 use lib '/usr/share/postgresql-common';
 use PgCommon;
 
-use Test::More tests => 32 * ($#MAJORS+1);
+use Test::More tests => 40 * ($#MAJORS+1);
 
 sub check_major {
     my $v = $_[0];
@@ -28,6 +27,31 @@ sub check_major {
 	is ((ps 'pg_autovacuum'), '', "No pg_autovacuum available for version $v");
     }
 
+    # verify that exactly one postmaster is running
+    my @pm_pids = pidof 'postmaster';
+    is $#pm_pids, 0, 'Exactly one postmaster process running';
+
+    # check environment
+    my %safe_env = qw/LC_ALL 1 LANG 1 PWD 1 PGLOCALEDIR 1 PGSYSCONFDIR 1 SHLVL 1 PGDATA 1 _ 1/;
+    my %env = pid_env $pm_pids[0];
+    foreach (keys %env) {
+        fail "postmaster has unsafe environment variable $_" unless exists $safe_env{$_};
+    }
+
+    # add variable to environment file, restart, check if it's there
+    open E, ">>/etc/postgresql/$v/main/environment" or 
+        die 'could not open environment file for appending';
+    print E "PGEXTRAVAR1 = 1 # short one\nPGEXTRAVAR2='foo bar '\n\n# comment";
+    close E;
+    is_program_out 'postgres', "pg_ctlcluster $v main restart", 0, '',
+        'cluster restarts with new environment file';
+
+    @pm_pids = pidof 'postmaster';
+    is $#pm_pids, 0, 'Exactly one postmaster process running';
+    %env = pid_env $pm_pids[0];
+    is $env{'PGEXTRAVAR1'}, '1', 'correct value of PGEXTRAVAR1 in environment';
+    is $env{'PGEXTRAVAR2'}, 'foo bar ', 'correct value of PGEXTRAVAR2 in environment';
+
     # verify that the correct client version is selected
     like_program_out 'postgres', 'psql --version', 0, qr/^psql \(PostgreSQL\) $v\.\d/,
         'pg_wrapper selects version number of cluster';
@@ -43,6 +67,15 @@ sub check_major {
     # verify that the postmaster does not have an associated terminal
     unlike_program_out 0, 'ps -o tty -U postgres h', 0, qr/tty|pts/,
         'postmaster processes do not have an associated terminal';
+
+    # verify that SSL is enabled (which should work for user postgres in a
+    # default installation)
+    if ($v ge '8.0') {
+        my $ssl = config_bool (PgCommon::get_conf_value $v, 'main', 'postgresql.conf', 'ssl');
+        is $ssl, 1, 'SSL is enabled';
+    } else {
+        pass 'Skipping SSL test for versions before 8.0';
+    }
 
     # Create user nobody, a database 'nobodydb' for him, check the database list
     my $outref;
@@ -78,11 +111,11 @@ Bob|1
 
     # Check pg_maintenance
     if ($pg_autovacuum || $v ge '8.1') {
-        like_program_out 0, 'pg_maintenance', 0, qr/^Skipping/, 'pg_maintenance skips autovacuumed cluster';
+        like_program_out 0, 'pg_maintenance', 0, qr/^Skipping.*\n$/, 'pg_maintenance skips autovacuumed cluster';
     } else {
-        like_program_out 0, 'pg_maintenance', 0, qr/^Doing/, 'pg_maintenance handles non-autovacuumed cluster';
+        like_program_out 0, 'pg_maintenance', 0, qr/^Doing.*\n$/, 'pg_maintenance handles non-autovacuumed cluster';
     }
-    like_program_out 0, 'pg_maintenance --force', 0, qr/^Doing/, 
+    like_program_out 0, 'pg_maintenance --force', 0, qr/^Doing.*\n$/, 
         'pg_maintenance --force always handles cluster';
 
     # Drop database and user again.
@@ -91,15 +124,10 @@ Bob|1
     is ((exec_as 'postgres', 'dropuser nobody', $outref, 0), 0, 'dropuser nobody');
 
     # stop server, clean up, check for leftovers
-    ok ((system "pg_dropcluster $v main --stop-server") == 0, 
+    ok ((system "pg_dropcluster $v main --stop") == 0, 
 	'pg_dropcluster removes cluster');
 
-    ok_dir "/etc/postgresql/$v", [], "No files in /etc/postgresql/$v left behind";
-    ok_dir "/var/lib/postgresql/$v", [], "No files in /var/lib/postgresql/$v left behind";
-    ok_dir '/var/run/postgresql', [], 'No files in /var/run/postgresql left behind';
-    ok_dir '/var/log/postgresql', [], 'No files in /var/log/postgresql left behind';
-    is ((ps 'postmaster'), '', 'No postmaster processes left behind');
-    is ((ps 'pg_autovacuum'), '', 'No pg_autovacuum processes left behind');
+    check_clean;
 }
 
 foreach (@MAJORS) { 

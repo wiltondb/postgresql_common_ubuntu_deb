@@ -1,4 +1,3 @@
-#!/usr/bin/perl -w
 # Check that the necessary packages are installed; we want all major servers,
 # no contrib for 7.4, and contrib for 8.0
 
@@ -14,7 +13,11 @@ foreach my $v (@MAJORS) {
 }
 
 ok ((!deb_installed 'postgresql-contrib-7.4'), 'postgresql-contrib-7.4 not installed');
-ok ((deb_installed 'postgresql-contrib-8.0'), 'postgresql-contrib-8.0 installed');
+if (deb_installed 'postgresql-8.0') {
+    ok ((deb_installed 'postgresql-contrib-8.0'), 'postgresql-contrib-8.0 installed');
+} else {
+    pass 'postgresql-8.0 not installed, skipping check for postgresql-contrib-8.0';
+}
 
 ok ((deb_installed 'procps'), 'procps installed');
 

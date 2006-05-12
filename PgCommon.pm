@@ -4,6 +4,7 @@
 package PgCommon;
 use strict;
 use Socket;
+use POSIX;
 
 use Exporter;
 our $VERSION = 1.00;
@@ -14,9 +15,10 @@ our @EXPORT = qw/error user_cluster_map get_cluster_port set_cluster_port
     get_program_path cluster_info get_versions get_newest_version version_exists
     get_version_clusters next_free_port cluster_exists install_file
     change_ugid config_bool get_db_encoding get_cluster_locales
-    get_cluster_databases/;
-our @EXPORT_OK = qw/$confroot get_conf_value set_conf_value disable_conf_value
-    replace_conf_value cluster_data_directory get_file_device/;
+    get_cluster_databases read_cluster_conf_file read_pg_hba/;
+our @EXPORT_OK = qw/$confroot read_conf_file get_conf_value set_conf_value
+    disable_conf_value replace_conf_value cluster_data_directory
+    get_file_device/;
 
 # configuration
 my $mapfile = "/etc/postgresql-common/user_clusters";
@@ -31,6 +33,36 @@ sub error {
     exit 1;
 }
 
+{
+    my %saved_env;
+
+    # untaint the environment for executing an external program
+    # Optional arguments: list of additional variables
+    sub prepare_exec {
+	my @cleanvars = qw/PATH IFS ENV BASH_ENV CDPATH/;
+	push @cleanvars, @_;
+	%saved_env = ();
+
+	foreach (@cleanvars) {
+	    $saved_env{$_} = $ENV{$_};
+	    delete $ENV{$_};
+	}
+
+	$ENV{'PATH'} = '';
+    }
+
+    # restore the environment after prepare_exec()
+    sub restore_exec {
+	foreach (keys %saved_env) {
+	    if (defined $saved_env{$_}) {
+		$ENV{$_} = $saved_env{$_};
+	    } else {
+		delete $ENV{$_};
+	    }
+	}
+    }
+}
+
 # Returns '1' if the argument is a configuration file value that stands for
 # true (ON, TRUE, YES, or 1, case insensitive), '0' if the argument represents
 # a false value (OFF, FALSE, NO, or 0, case insensitive), or undef otherwise.
@@ -41,22 +73,54 @@ sub config_bool {
     return undef;
 }
 
+# Read a 'var = value' style configuration file and return a hash with the
+# values. Error out if the file cannot be read.
+# Arguments: <path>
+# Returns: hash (empty if file does not exist)
+sub read_conf_file {
+    my %conf;
+
+    return %conf unless -e $_[0];
+
+    if (open F, $_[0]) {
+        while (<F>) {
+            if (/^\s*(?:#.*)?$/) {
+                next;
+            } elsif (/^\s*([a-zA-Z0-9_.-]+)\s*=\s*'([^']*)'\s*(?:#.*)?$/) {
+                # string value
+                $conf{$1} = $2 
+            } elsif (/^\s*([a-zA-Z0-9_.-]+)\s*=\s*(-?[\w.]+)\s*(?:#.*)?$/) {
+                # simple value
+                $conf{$1} = $2;
+            } else {
+                error "Invalid line $. in $_[0]";
+            }
+        }
+        close F;
+    } else {
+        error "could not read $_[0]: $!";
+    }
+
+    return %conf;
+}
+
+# Read a 'var = value' style configuration file from a cluster configuration
+# directory (with /etc/postgresql-common/<file name> as fallback) and return a
+# hash with the values. Error out if the file cannot be read.
+# Arguments: <version> <cluster> <config file name>
+# Returns: hash (empty if the file does not exist)
+sub read_cluster_conf_file {
+     my $fname = "$confroot/$_[0]/$_[1]/$_[2]";
+     -e $fname or $fname = "$common_confdir/$_[2]";
+    return read_conf_file $fname;
+}
+
 # Return parameter from a PostgreSQL configuration file, or undef if the parameter
 # does not exist.
 # Arguments: <version> <cluster> <config file name> <parameter name>
 sub get_conf_value {
-    return 0 unless $_[0] && $_[1];
-    my $fname = "$confroot/$_[0]/$_[1]/$_[2]";
-    -e $fname or $fname = "$common_confdir/$_[2]";
-
-    if (open F, $fname) {
-        while (<F>) {
-            return $1 if /^\s*$_[3]\s*=\s*(-?[\w.]+)\b/; # simple value
-            return $1 if /^\s*$_[3]\s*=\s*'([^']*)'/; # string value
-        }
-        close F;
-    }
-    return undef;
+    my %conf = (read_cluster_conf_file $_[0], $_[1], $_[2]);
+    return $conf{$_[3]};
 }
 
 # Set parameter of a PostgreSQL configuration file.
@@ -192,7 +256,9 @@ sub set_cluster_port {
 # Return cluster data directory.
 # Arguments: <version> <cluster name>
 sub cluster_data_directory {
-    return readlink ("$confroot/$_[0]/$_[1]/pgdata");
+    my $d = readlink "$confroot/$_[0]/$_[1]/pgdata";
+    ($d) = $d =~ /(.*)/ if defined $d; #untaint
+    return $d;
 }
 
 # Return the socket directory of a particular cluster or undef if the cluster
@@ -234,6 +300,7 @@ sub set_cluster_socketdir {
 sub get_program_path {
     return '' unless defined($_[0]) && defined($_[1]);
     my $path = "$binroot/$_[1]/bin/$_[0]";
+    ($path) = $path =~ /(.*)/; #untaint
     return $path if -x $path;
     return '';
 }
@@ -330,11 +397,13 @@ $val
 # Returns: information hash (keys: pgdata, port, running, logfile, configdir,
 # owneruid, ownergid, socketdir)
 sub cluster_info {
+    error 'cluster_info must be called with <version> <cluster> arguments' unless $_[0] && $_[1];
+
     my %result;
     $result{'configdir'} = "$confroot/$_[0]/$_[1]";
     $result{'pgdata'} = cluster_data_directory $_[0], $_[1];
-    $result{'logfile'} = readlink ($result{'configdir'} . "/log");
-    $result{'port'} = (get_conf_value $_[0], $_[1], 'postgresql.conf', 'port') || $defaultport;
+    my %postgresql_conf = read_cluster_conf_file $_[0], $_[1], 'postgresql.conf';
+    $result{'port'} = $postgresql_conf{'port'} || $defaultport;
     $result{'socketdir'} = get_cluster_socketdir  $_[0], $_[1];
     $result{'running'} = cluster_port_running ($_[0], $_[1], $result{'port'});
     if ($result{'pgdata'}) {
@@ -343,24 +412,46 @@ sub cluster_info {
     }
     $result{'start'} = get_cluster_start_conf $_[0], $_[1];
 
+    # log file
+    if (exists $postgresql_conf{'log_filename'} || 
+	exists $postgresql_conf{'log_directory'}) {
+	my $dir;
+	if ( exists $postgresql_conf{'log_directory'} && (substr $postgresql_conf{'log_directory'}, 0, 1) eq '/') {
+	    $dir = $postgresql_conf{'log_directory'} || $result{'pgdata'};
+	} else {
+	    $dir = $result{'pgdata'} . '/' . ($postgresql_conf{'log_directory'} || '');
+	}
+
+	my $fname = $postgresql_conf{'log_filename'} || 'postgresql-%Y-%m-%d_%H%M%S.log';
+	$fname .= '.%s' if (index $fname, '%') < 0;
+	$fname = strftime $fname, localtime;
+
+	$result{'logfile'} = "$dir/$fname";
+    } else {
+	$result{'logfile'} = readlink ($result{'configdir'} . "/log");
+    }
+    ($result{'logfile'}) = $result{'logfile'} =~ /(.*)/; # untaint
+
     # autovacuum settings
 
     if ($_[0] lt '8.1') {
         $result{'avac_logfile'} = readlink ($result{'configdir'} . "/autovacuum_log");
+        ($result{'avac_logfile'}) = $result{'avac_logfile'} =~ /(.*)/; # untaint
         if (get_program_path 'pg_autovacuum', $_[0]) {
-            $result{'avac_enable'} = config_bool (get_conf_value ($_[0], $_[1], 'autovacuum.conf', 'start'));
-            $result{'avac_debug'} = get_conf_value ($_[0], $_[1], 'autovacuum.conf', 'avac_debug');
-            $result{'avac_sleep_base'} = get_conf_value ($_[0], $_[1], 'autovacuum.conf', 'avac_sleep_base');
-            $result{'avac_sleep_scale'} = get_conf_value ($_[0], $_[1], 'autovacuum.conf', 'avac_sleep_scale');
-            $result{'avac_vac_base'} = get_conf_value ($_[0], $_[1], 'autovacuum.conf', 'avac_vac_base');
-            $result{'avac_vac_scale'} = get_conf_value ($_[0], $_[1], 'autovacuum.conf', 'avac_vac_scale');
-            $result{'avac_anal_base'} = get_conf_value ($_[0], $_[1], 'autovacuum.conf', 'avac_anal_base');
-            $result{'avac_anal_scale'} = get_conf_value ($_[0], $_[1], 'autovacuum.conf', 'avac_anal_scale');
+            my %autovac_conf = read_cluster_conf_file $_[0], $_[1], 'autovacuum.conf';
+            $result{'avac_enable'} = config_bool $autovac_conf{'start'};
+            $result{'avac_debug'} = $autovac_conf{'avac_debug'};
+            $result{'avac_sleep_base'} = $autovac_conf{'avac_sleep_base'};
+            $result{'avac_sleep_scale'} = $autovac_conf{'avac_sleep_scale'};
+            $result{'avac_vac_base'} = $autovac_conf{'avac_vac_base'};
+            $result{'avac_vac_scale'} = $autovac_conf{'avac_vac_scale'};
+            $result{'avac_anal_base'} = $autovac_conf{'avac_anal_base'};
+            $result{'avac_anal_scale'} = $autovac_conf{'avac_anal_scale'};
         } else {
             $result{'avac_enable'} = 0;
         }
     } else {
-        $result{'avac_enable'} = config_bool (get_conf_value ($_[0], $_[1], 'postgresql.conf', 'autovacuum'));
+        $result{'avac_enable'} = config_bool $postgresql_conf{'autovacuum'};
     }
     
     return %result;
@@ -372,6 +463,7 @@ sub get_versions {
     if (opendir (D, $binroot)) {
 	my $entry;
         while (defined ($entry = readdir D)) {
+	    ($entry) = $entry =~ /^(\d+\.\d+)$/; # untaint
             push @versions, $entry if get_program_path ('psql', $entry);
         }
         closedir D;
@@ -399,6 +491,7 @@ sub get_version_clusters {
     if (opendir (D, $vdir)) {
 	my $entry;
         while (defined ($entry = readdir D)) {
+	    ($entry) = $entry =~ /^(.*)$/; # untaint
             if (-l $vdir.$entry.'/pgdata' && -r $vdir.$entry.'/postgresql.conf') {
                 push @clusters, $entry;
             }
@@ -430,7 +523,14 @@ sub next_free_port {
 
     my $port;
     for ($port = $defaultport; ; ++$port) {
-	last unless grep { $_ == $port } @ports;
+	next if grep { $_ == $port } @ports;
+
+        # check if port is already in use
+        socket (SOCK, PF_INET, SOCK_STREAM, getprotobyname('tcp')) or 
+            die "could not create socket: $!";
+        my $res = bind (SOCK, sockaddr_in($port, INADDR_ANY));
+        close SOCK;
+        last if $res;
     }
 
     return $port;
@@ -454,6 +554,9 @@ sub user_cluster_map {
 	    s/(.*?)#.*/$1/;
 	    next if /^\s*$/;
 	    my ($v,$c,$db) = split;
+	    if (!cluster_exists $v, $c) {
+		error "$homemapfile line $.: cluster $v/$c does not exist";
+	    }
 	    if ($db) {
 		close MAP;
 		return ($v, $c, ($db eq "*") ? undef : $db);
@@ -466,24 +569,25 @@ sub user_cluster_map {
     }
 
     # check global map file
-    if (! open MAP, $mapfile) {
-        print "Warning: could not open $mapfile, connecting to default port\n";
-        return (undef,undef,$user);
-    }
-    while (<MAP>) {
-        s/(.*?)#.*/$1/;
-        next if /^\s*$/;
-        my ($u,$g,$v,$c,$db) = split;
-        if (!$db) {
-            print  "Warning: ignoring invalid line $. in $mapfile\n";
-            next;
+    if (open MAP, $mapfile) {
+        while (<MAP>) {
+            s/(.*?)#.*/$1/;
+            next if /^\s*$/;
+            my ($u,$g,$v,$c,$db) = split;
+            if (!$db) {
+                print  "Warning: ignoring invalid line $. in $mapfile\n";
+                next;
+            }
+	    if (!cluster_exists $v, $c) {
+		error "$mapfile line $.: cluster $v/$c does not exist";
+	    }
+            if (($u eq "*" || $u eq $user) && ($g eq "*" || $g eq $group)) {
+                close MAP;
+                return ($v,$c, ($db eq "*") ? undef : $db);
+            }
         }
-        if (($u eq "*" || $u eq $user) && ($g eq "*" || $g eq $group)) {
-	    close MAP;
-            return ($v,$c, ($db eq "*") ? undef : $db);
-        }
+        close MAP;
     }
-    close MAP;
 
     # if only one cluster exists, use that
     my $count = 0;
@@ -522,28 +626,32 @@ sub install_file {
     }
 }
 
-# Change effective and real user and group id. If the user id is member of the
-# "shadow" group, then "shadow" will be in the set of effective groups. Exits
-# with an error message if user/group ID cannot be changed.
+# Change effective and real user and group id. Also activates all auxiliary
+# groups the user is in. Exits with an error message if user/group ID cannot be
+# changed.
 # Arguments: <user id> <group id>
 sub change_ugid {
     my ($uid, $gid) = @_;
     my $groups = $gid;
     $groups .= " $groups"; # first additional group
 
-    # check whether owner is in the shadow group, and keep shadow privileges in
-    # this case; this is a poor workaround for the lack of initgroups().
-    my @shadowmembers = split /\s+/, ((getgrnam 'shadow')[3]);
-    for my $m (@shadowmembers) {
-	my $mid = getpwnam $m;
-	if ($mid == $uid) {
-	    $groups .= ' ' . (getgrnam 'shadow');
-	    last;
+    # collect all auxiliary groups the user is in
+    setgrent;
+    for(;;) {
+	my ($name, undef, $gid, $members) = getgrent;
+	last unless defined $gid;
+	for my $m (split /\s/, $members) {
+	    my $u = getpwnam $m;
+	    if (defined $u && $u == $uid) {
+		$groups .= " $gid";
+	    }
 	}
     }
+    endgrent;
 
-    $( = $) = $groups;
-    $< = $> = $uid;
+    $) = $groups;
+    $( = $gid;
+    $> = $< = $uid;
     error 'Could not change user id' if $< != $uid;
     error 'Could not change group id' if $( != $gid;
 }
@@ -561,11 +669,19 @@ sub get_db_encoding {
     return undef unless ($port && $socketdir && $psql);
 
     # try to swich to cluster owner
+    prepare_exec 'LC_ALL';
+    $ENV{'LC_ALL'} = 'C';
     my $orig_euid = $>;
     $> = (stat (cluster_data_directory $version, $cluster))[4];
-    my $out = `LANG=C $psql -h '$socketdir' -p $port -Atc 'select getdatabaseencoding()' $db 2>/dev/null`;
+    open PSQL, '-|', $psql, '-h', $socketdir, '-p', $port, '-Atc', 
+        'select getdatabaseencoding()', $db or 
+        die "Internal error: could not call $psql to determine db encoding: $!";
+    my $out = <PSQL>;
+    close PSQL;
     $> = $orig_euid;
+    restore_exec;
     chomp $out;
+    ($out) = $out =~ /^([\w.-]+)$/; # untaint
     return $out unless $?;
     return undef;
 }
@@ -579,8 +695,10 @@ sub get_cluster_locales {
     my ($lc_ctype, $lc_collate) = (undef, undef);
 
     my $pg_controldata = get_program_path 'pg_controldata', $version;
-    open (CTRL, '-|', $pg_controldata, (cluster_data_directory $version, $cluster)) or 
-	return (undef, undef);
+    prepare_exec;
+    my $result = open (CTRL, '-|', $pg_controldata, (cluster_data_directory $version, $cluster));
+    restore_exec;
+    return (undef, undef) unless defined $result;
     while (<CTRL>) {
 	if (/^LC_CTYPE.*:\s*(\S+)\s*$/) {
 	    $lc_ctype = $1;
@@ -605,18 +723,24 @@ sub get_cluster_databases {
     return undef unless ($port && $socketdir && $psql);
 
     # try to swich to cluster owner
+    prepare_exec 'LC_ALL';
+    $ENV{'LC_ALL'} = 'C';
     my $orig_euid = $>;
     $> = (stat (cluster_data_directory $version, $cluster))[4];
-    my $out = `LANG=C $psql -h '$socketdir' -p $port -Atl 2>/dev/null`;
-    $> = $orig_euid;
-    return undef if $?;
+
     my @dbs;
-    my $i = 0;
-    foreach (split "\n", $out) {
-        chomp;
-        $dbs[$i++] = (split '\|')[0];
+    if (open PSQL, '-|', $psql, '-h', $socketdir, '-p', $port, '-Atl') {
+        while (<PSQL>) {
+            chomp;
+            push (@dbs, (split '\|')[0]);
+        }
+        close PSQL;
     }
-    return @dbs;
+
+    $> = $orig_euid;
+    restore_exec;
+
+    return $? ? undef : @dbs;
 }
 
 # Return the device name a file is stored at.
@@ -624,6 +748,7 @@ sub get_cluster_databases {
 # Returns:  device name, or '' if it cannot be determined.
 sub get_file_device {
     my $dev = '';
+    prepare_exec;
     if (open DF, '-|', '/bin/df', $_[0]) {
         while (<DF>) {
             if (/^\/dev/) {
@@ -631,6 +756,83 @@ sub get_file_device {
             }
         }
     }
+    restore_exec;
     close DF;
     return $dev;
 }
+
+
+# Parse a single pg_hba.conf line.
+# Arguments: <line>
+# Returns: Hash reference (only returns line and type==undef for invalid lines)
+# line -> the verbatim pg_hba line
+# type -> comment, local, host, hostssl, hostnossl, undef
+# db -> database name
+# user -> user name
+# method -> trust, reject, md5, crypt, password, krb5, ident, pam
+# ip -> ip address
+# mask -> network mask (either a single number as number of bits, or bit mask)
+my %valid_methods = qw/trust 1 reject 1 md5 1 crypt 1 password 1 krb5 1 ident 1 pam 1/;
+sub parse_hba_line {
+    my $l = $_[0];
+    chomp $l;
+
+    # comment line?
+    return { 'type' => 'comment', 'line' => $l } if ($l =~ /^\s*($|#)/);
+
+    my $res = { 'line' => $l };
+    my @tok = split /\s+/, $l;
+    goto error if $#tok < 3;
+
+    $$res{'type'} = shift @tok;
+    $$res{'db'} = shift @tok;
+    $$res{'user'} = shift @tok;
+
+    # local connection?
+    if ($$res{'type'} eq 'local') {
+	goto error if $#tok > 1;
+	goto error unless $valid_methods{$tok[0]};
+	$$res{'method'} = join (' ', @tok);
+	return $res;
+    } 
+
+    # host connection?
+    if ($$res{'type'} =~ /^host((no)?ssl)?$/) {
+	my ($i, $c) = split '/', (shift @tok);
+	goto error unless $i;
+	$$res{'ip'} = $i;
+
+	# CIDR mask given?
+	if (defined $c) {
+	    goto error if $c !~ /^(\d+)$/;
+	    $$res{'mask'} = $c;
+	} else {
+	    $$res{'mask'} = shift @tok;
+	}
+
+	goto error if $#tok > 1;
+	goto error unless $valid_methods{$tok[0]};
+	$$res{'method'} = join (' ', @tok);
+	return $res;
+    }
+
+error:
+    $$res{'type'} = undef;
+    return $res;
+}
+
+# Parse given pg_hba.conf file.
+# Arguments: <pg_hba.conf path>
+# Returns: Array with hash refs; for hash contents, see parse_hba_line().
+sub read_pg_hba {
+    open HBA, $_[0] or return undef;
+    my @hba;
+    while (<HBA>) {
+	my $r = parse_hba_line $_;
+	push @hba, $r;
+    }
+    close HBA;
+    return @hba;
+}
+
+1;

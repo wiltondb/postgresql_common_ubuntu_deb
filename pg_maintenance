@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl -wT
 
 # Vacuum (and optionally analyze) all databases in all clusters.
 #
@@ -7,6 +7,10 @@
 use lib '/usr/share/postgresql-common';
 use Getopt::Long;
 use PgCommon;
+
+# untaint environment
+$ENV{'PATH'} = '/bin:/usr/local/bin:/usr/bin';
+delete @ENV{'IFS', 'CDPATH', 'ENV', 'BASH_ENV'};
 
 $full = 0;
 $analyze = 0;

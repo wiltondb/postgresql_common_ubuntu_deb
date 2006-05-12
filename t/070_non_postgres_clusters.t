@@ -1,4 +1,3 @@
-#!/usr/bin/perl -w
 # Test successful operation of clusters which are not owned by
 # postgres. Only check the oldest and newest version.
 
@@ -7,7 +6,7 @@ use strict;
 use lib 't';
 use TestLib;
 
-use Test::More tests => 18;
+use Test::More tests => 25;
 
 my $owner = 'nobody';
 
@@ -27,9 +26,11 @@ for my $v (@MAJORS[0, -1]) {
     ok_dir '/var/run/postgresql', [], '/var/run/postgresql is empty';
     
     # Check proper cleanup
-    is ((system "pg_dropcluster $v main --stop-server"), 0, 'pg_dropcluster');
+    is ((system "pg_dropcluster $v main --stop"), 0, 'pg_dropcluster');
     is_program_out $owner, 'pg_lsclusters -h', 0, '', 'No clusters left';
     is ((ps 'postmaster'), '', 'No postmaster processes left');
 }
+
+check_clean;
 
 # vim: filetype=perl

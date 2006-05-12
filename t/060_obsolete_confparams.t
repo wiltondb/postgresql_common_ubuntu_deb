@@ -1,4 +1,3 @@
-#!/usr/bin/perl -w
 # Test upgrading from the oldest version to all majors with all possible
 # configuration parameters set. This checks that they are correctly
 # transitioned.
@@ -8,7 +7,7 @@ use strict;
 use lib 't';
 use TestLib;
 
-use Test::More tests => 4 + $#MAJORS * 9;
+use Test::More tests => 9 + $#MAJORS * 9;
 
 # postgresql.conf configuration file with all available options turned on
 my %fullconf;
@@ -168,7 +167,7 @@ from_collapse_limit = 8
 join_collapse_limit = 8	
 log_destination = 'stderr'	
 redirect_stderr = false    
-log_directory = 'pg_log'   
+log_directory = '.'   
 log_filename = 'postgresql-%Y-%m-%d_%H%M%S.log' 
 log_truncate_on_rotation = false  
 log_rotation_age = 1440    
@@ -260,7 +259,6 @@ while ($#testversions) {
 # remove latest cluster and directory
 is ((system "pg_dropcluster $testversions[0] main"), 0, 'Dropping remaining cluster');
 
-# Check clusters
-is_program_out 'postgres', 'pg_lsclusters -h', 0, '', 'empty pg_lsclusters output';
+check_clean;
 
 # vim: filetype=perl

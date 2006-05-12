@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl -wT
 
 # multiversion/cluster aware pg_ctl wrapper; this also supplies the correct
 # configuration parameters to 'start', and makes sure that a postmaster really
@@ -12,21 +12,14 @@ use POSIX qw/setsid setlocale LC_ALL :sys_wait_h/;
 use PgCommon;
 use Fcntl 'SEEK_SET';
 
-if ($#ARGV != 2) {
-    print "Usage: $0 <version> <cluster> <action>\n";
-    exit 1;
-}
-
 # Check for known broken configurations of this cluster
 sub check_valid_config {
-    my $log_statement_stats = config_bool (PgCommon::get_conf_value $version,
-    $cluster, 'postgresql.conf', 'log_statement_stats');
-    my $log_parser_stats = config_bool (PgCommon::get_conf_value $version,
-	$cluster, 'postgresql.conf', 'log_parser_stats');
-    my $log_planner_stats = config_bool (PgCommon::get_conf_value $version,
-	$cluster, 'postgresql.conf', 'log_planner_stats');
-    my $log_executor_stats = config_bool (PgCommon::get_conf_value $version,
-	$cluster, 'postgresql.conf', 'log_executor_stats');
+    my %postgresql_conf = read_cluster_conf_file $version, $cluster,
+        'postgresql.conf';
+    my $log_statement_stats = config_bool $postgresql_conf{'log_statement_stats'};
+    my $log_parser_stats = config_bool $postgresql_conf{'log_parser_stats'};
+    my $log_planner_stats = config_bool $postgresql_conf{'log_planner_stats'};
+    my $log_executor_stats = config_bool $postgresql_conf{'log_executor_stats'};
 
     # statement and other statistics are mutually exclusive
     if ($log_statement_stats && ($log_parser_stats || $log_planner_stats ||
@@ -77,7 +70,7 @@ sub start_check_pid_file {
     my $pidfile = $info{'pgdata'}.'/postmaster.pid';
     if (check_running_postmaster $pidfile) {
         print "Cluster is already running.\n";
-        exit 1;
+        exit 2;
     }
 
     # Remove invalid or stale PID file
@@ -95,7 +88,8 @@ sub stop_check_pid_file {
     if ($info{'running'}) {
 	error 'pid file is invalid, please manually kill the stale server process.';
     }
-    error 'cluster is not running';
+    print "Cluster is not running.\n";
+    exit 2;
 }
 
 # check if a cluster reliably connects or fails
@@ -123,7 +117,11 @@ sub cluster_port_ready {
 }
 
 sub autovacuum_start {
-    return unless $info{'avac_enable'} and $version < 8.1;
+    if ($version ge '8.1') {
+	error 'PostgreSQL 8.1 and above has an integrated autovacuum daemon which cannot be controlled by this program.';
+    }
+
+    return unless $info{'avac_enable'};
 
     error "pg_autovacuum not found. Install postgresql-contrib-$version to get it" 
         unless $pg_autovacuum;
@@ -195,21 +193,29 @@ sub autovacuum_start {
 }
 
 sub autovacuum_stop {
-    return unless $info{'avac_enable'} and $version < 8.1;
+    if ($version ge '8.1') {
+	error 'PostgreSQL 8.1 and above has an integrated autovacuum daemon which cannot be controlled by this program.';
+    }
+
+    return unless $info{'avac_enable'};
 
     error "pg_autovacuum not found. Install postgresql-contrib-$version to get it" 
         unless $pg_autovacuum;
 
     if (open my $AVAC_PID, $info{'pgdata'}.'/autovacuum.pid') {
         $pid = <$AVAC_PID>;
+        ($pid) = $pid =~ /^(\d+)\s*$/; # untaint
+        kill ('TERM', $pid) if $pid;
         close $AVAC_PID;
+        unlink $info{'pgdata'}.'/autovacuum.pid';
     }
-
-    kill ('TERM', $pid) if ($pid);
-    unlink $info{'pgdata'}.'/autovacuum.pid';
 }
 
 sub autovacuum_restart {
+    if ($version ge '8.1') {
+	error 'PostgreSQL 8.1 and above has an integrated autovacuum daemon which cannot be controlled by this program.';
+    }
+
     if (-f $info{'pgdata'}.'/autovacuum.pid') {
         autovacuum_stop;
         autovacuum_start;
@@ -232,8 +238,8 @@ sub start {
 	error ("The server must be started under the locale $lc_ctype which does not exist any more.")
     }
 
-    # set locale for the postmaster
-    $ENV{'LC_ALL'} = $ENV{'LANG'} = $lc_ctype;
+    # prepare environment
+    %ENV = read_cluster_conf_file $version, $cluster, 'environment';
 
     my $postmaster_opts = '-c unix_socket_directory="' . $info{'socketdir'} . '"';
 
@@ -242,12 +248,21 @@ sub start {
         $postmaster_opts .= " -c config_file=\"$cdir/postgresql.conf\" -c hba_file=\"$cdir/pg_hba.conf\" -c ident_file=\"$cdir/pg_ident.conf\""; 
     }
 
+    $postmaster_opts .= ' ' . (join ' ', @postmaster_auxoptions);
+    ($postmaster_opts) = $postmaster_opts =~ /(.*)/; # untaint
+
     @options = ($pg_ctl, 'start', '-D', $info{'pgdata'},'-l', $info{'logfile'},
 	'-s', '-o', $postmaster_opts);
 
     # remember current size of the log
     $logsize = 0;
-    $logsize = (stat $info{'logfile'})[7] if -r $info{'logfile'};
+    unless (-e $info{'logfile'}) {
+	open L, '>', $info{'logfile'} or 
+	    error 'Could not create log file ' . $info{'logfile'};
+	chmod 0640, $info{'logfile'};
+	close L;
+    }
+    $logsize = (stat $info{'logfile'})[7];
 
     if (fork) {
         wait;
@@ -276,7 +291,30 @@ sub start {
 
     # OK, the server runs, now wait until it stabilized
     if ($success)  {
-        $success = cluster_port_ready $version, $cluster, $info{'port'}, $info{'socketdir'};
+	# check whether db superuser can connect without password
+	my @hba = read_pg_hba "$cdir/pg_hba.conf";
+	my %firsthba;
+	while ($#hba >= 0) {
+	    %firsthba = %{$hba[0]};
+	    if ($firsthba{'type'} && $firsthba{'type'} eq 'comment') {
+		shift @hba;
+		%firsthba = ();
+	    } else {
+		last;
+	    }
+	}
+	if (!$firsthba{'type'}) {
+	    print STDERR "WARNING: Invalid pg_hba.conf, client connections will fail\n";
+	    $success = cluster_port_running $version, $cluster, $info{'port'};
+	} elsif ($firsthba{'type'} ne 'local' || $firsthba{'db'} ne 'all' || 
+	         ($firsthba{'user'} ne 'all' &&
+	         $firsthba{'user'} ne (getpwuid $info{'owneruid'})) || 
+		 $firsthba{'method'} !~ /^(ident|trust)/) {
+	    print STDERR "WARNING: You removed the first pg_hba.conf entry that granted local passwordless access to the database superuser. Disabling startup checks.\n";
+	    $success = cluster_port_running $version, $cluster, $info{'port'};
+	} else {
+	    $success = cluster_port_ready $version, $cluster, $info{'port'}, $info{'socketdir'};
+	}
     }
 
     if ($success) {
@@ -336,11 +374,22 @@ sub reload {
 # main
 #
 
+exit 1 unless GetOptions ('o|options=s' => \@postmaster_auxoptions);
+
+if ($#ARGV != 2) {
+    print "Usage: $0 <version> <cluster> <action>\n";
+    exit 1;
+}
+
 ($version, $cluster, $action) = @ARGV;
+error 'specified cluster does not exist' unless cluster_exists $version, $cluster;
 %info = cluster_info ($version, $cluster);
 
-error 'specified cluster does not exist' unless $info{'pgdata'};
 error 'Cluster is disabled' if $info{'start'} eq 'disabled';
+
+# untaint environment
+$ENV{'PATH'} = '/bin:/usr/local/bin:/usr/bin';
+delete @ENV{'IFS', 'CDPATH', 'ENV', 'BASH_ENV'};
 
 # check that owner uig/gid is valid
 unless (getpwuid $info{'owneruid'}) {
@@ -384,7 +433,7 @@ pg_ctlcluster - start/stop/restart/reload a PostgreSQL cluster
 
 =head1 SYNOPSIS
 
-B<pg_ctlcluster> I<cluster-version> I<cluster-name> I<action>
+B<pg_ctlcluster> [I<options>] I<cluster-version> I<cluster-name> I<action>
 
 where I<action> = B<start>|B<stop>|B<restart>|B<reload>|B<autovac-start>|B<autovac-stop>|B<autovac-restart>
 
@@ -412,7 +461,8 @@ package B<postgresql-contrib->I<version> is installed, a B<pg_autovacuum>
 process is started as well (unless this gets disabled in
 C</etc/postgresql-common/autovacuum.conf> or a cluster-specific
 C<autovacuum.conf> file). Please note that server version 8.1 and above does
-internal autovacuuming.
+internal autovacuuming. Exits with 0 on success, with 2 if the server is
+already running, and with 1 on other failure conditions.
 
 =item B<stop>
 
@@ -422,6 +472,8 @@ rolls back all active transactions and thus shuts down cleanly. If that does
 not work, shutdown is attempted again in B<immediate> mode, which can leave the
 cluster in an inconsistent state and thus will lead to a recovery run at the
 next start. If this still does not help, the B<postmaster> process is killed.
+Exits with 0 on success, with 2 if the server is not running, and with 1 on
+other failure conditions.
 
 =item B<restart>
 
@@ -436,26 +488,38 @@ server.
 =item B<autovac-start> 
 
 Starts a B<pg_autovacuum> process for an already running cluster. This normally
-happens automatically along with B<start>. This is ignored for PostgreSQL 8.1
+happens automatically along with B<start>. This command fails for PostgreSQL 8.1
 and above since they do autovacuuming internally.
 
 =item B<autovac-stop> 
 
 Stops the B<pg_autovacuum> process for a running cluster. This normally happens
-automatically along with B<stop>. This is ignored for PostgreSQL 8.1 and above
+automatically along with B<stop>. This command fails for PostgreSQL 8.1 and above
 since they do autovacuuming internally.
 
 =item B<autovac-restart> 
 
 Restarts a B<pg_autovacuum> process for an already running cluster. This
-normally happens automatically along with B<restart>. This is ignored for
+normally happens automatically along with B<restart>. This command fails for
 PostgreSQL 8.1 and above since they do autovacuuming internally.
+
+=back
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-o> I<option>
+
+Pass given I<option> as command line option to the C<postmaster> process. It is
+possible to specify B<-o> multiple times. See L<postmaster(1)> for a
+description of valid options.
 
 =back
 
 =head1 SEE ALSO
 
-L<pg_ctl(1)>, L<pg_wrapper(1)>, L<pg_lsclusters(1)>
+L<pg_ctl(1)>, L<pg_wrapper(1)>, L<pg_lsclusters(1)>, L<postmaster(1)>
 
 =head1 AUTHOR
 

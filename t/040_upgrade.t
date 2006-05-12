@@ -1,4 +1,3 @@
-#!/usr/bin/perl -w
 # Test upgrading from the oldest version to the latest, using the default
 # configuration file.
 
@@ -10,7 +9,7 @@ use TestLib;
 use lib '/usr/share/postgresql-common';
 use PgCommon;
 
-use Test::More tests => 60;
+use Test::More tests => 65;
 
 # create cluster
 ok ((system "pg_createcluster $MAJORS[0] upgr --start >/dev/null") == 0,
@@ -113,10 +112,9 @@ testnc|f
 ', 'dataallowconn values';
 
 # stop servers, clean up
-is ((system "pg_dropcluster $MAJORS[0] upgr --stop-server"), 0, 'Dropping original cluster');
-is ((system "pg_dropcluster $MAJORS[-1] upgr --stop-server"), 0, 'Dropping upgraded cluster');
+is ((system "pg_dropcluster $MAJORS[0] upgr --stop"), 0, 'Dropping original cluster');
+is ((system "pg_dropcluster $MAJORS[-1] upgr --stop"), 0, 'Dropping upgraded cluster');
 
-# Check clusters
-is_program_out 'postgres', 'pg_lsclusters -h', 0, '', 'empty pg_lsclusters output';
+check_clean;
 
 # vim: filetype=perl
