@@ -7,7 +7,7 @@ use strict;
 use lib 't';
 use TestLib;
 
-use Test::More tests => 9 + $#MAJORS * 9;
+use Test::More tests => 11 + $#MAJORS * 9;
 
 # postgresql.conf configuration file with all available options turned on
 my %fullconf;
@@ -210,10 +210,10 @@ timezone = unknown
 australian_timezones = false
 extra_float_digits = 0		
 client_encoding = sql_ascii	
-lc_messages = 'en_US.UTF-8'		
-lc_monetary = 'en_US.UTF-8'		
-lc_numeric = 'en_US.UTF-8'		
-lc_time = 'en_US.UTF-8'			
+lc_messages = 'ru_RU.UTF-8'		
+lc_monetary = 'ru_RU.UTF-8'		
+lc_numeric = 'ru_RU.UTF-8'		
+lc_time = 'ru_RU.UTF-8'			
 explain_pretty_print = true
 dynamic_library_path = '\$libdir'
 deadlock_timeout = 1000	

@@ -15,6 +15,14 @@ use lib '/usr/share/postgresql-common';
 use PgCommon qw/get_versions change_ugid/;
 our @MAJORS = sort (get_versions());
 
+# called if a test fails; spawn a shell if the environment variable
+# FAILURE=shell is set
+sub fail_debug { 
+    if ($ENV{'FAILURE'} eq 'shell') {
+	system 'bash';
+    }
+}
+
 # Return whether a given deb is installed.
 # Arguments: <deb name>
 sub deb_installed {
@@ -116,8 +124,8 @@ sub exec_as {
 sub is_program_out {
     my $outref;
     my $result = exec_as $_[0], $_[1], $outref;
-    is $result, $_[2], $_[1];
-    is ($$outref, $_[3], (defined $_[4] ? $_[4] : "correct output of $_[1]"));
+    is $result, $_[2], $_[1] or fail_debug;
+    is ($$outref, $_[3], (defined $_[4] ? $_[4] : "correct output of $_[1]")) or fail_debug;
 }
 
 # Execute a command as a particular user, and check the exit code and output
@@ -126,8 +134,8 @@ sub is_program_out {
 sub like_program_out {
     my $outref;
     my $result = exec_as $_[0], $_[1], $outref;
-    is $result, $_[2], $_[1];
-    like ($$outref, $_[3], (defined $_[4] ? $_[4] : "correct output of $_[1]"));
+    is $result, $_[2], $_[1] or fail_debug;
+    like ($$outref, $_[3], (defined $_[4] ? $_[4] : "correct output of $_[1]")) or fail_debug;
 }
 
 # Execute a command as a particular user, check the exit code, and check that
@@ -136,13 +144,13 @@ sub like_program_out {
 sub unlike_program_out {
     my $outref;
     my $result = exec_as $_[0], $_[1], $outref;
-    is $result, $_[2], $_[1];
-    unlike ($$outref, $_[3], (defined $_[4] ? $_[4] : "correct output of $_[1]"));
+    is $result, $_[2], $_[1] or fail_debug;
+    unlike ($$outref, $_[3], (defined $_[4] ? $_[4] : "correct output of $_[1]")) or fail_debug;
 }
 
 # Check that all PostgreSQL related directories are empty and no
 # postmaster/pg_autovacuum processes are running. Should be called at the end
-# of all tests. Does 7 tests.
+# of all tests. Does 9 tests.
 sub check_clean {
     is (`pg_lsclusters -h`, '', 'No existing clusters');
     is ((ps 'postmaster'), '', 'No postmaster processes left behind');
@@ -157,4 +165,7 @@ sub check_clean {
             pass "Directory $_ does not exist";
         }
     }
+
+    is_program_out 0, 'netstat -avptn | grep ":543[2-9]"', 1, '',
+	'PostgreSQL TCP ports are closed';
 }

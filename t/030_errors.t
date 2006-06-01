@@ -2,9 +2,11 @@
 
 use strict; 
 
+require File::Temp;
+
 use lib 't';
 use TestLib;
-use Test::More tests => 87;
+use Test::More tests => 124;
 
 use lib '/usr/share/postgresql-common';
 use PgCommon;
@@ -191,6 +193,58 @@ check_nonexisting_cluster_error "pg_upgradecluster 4.5 foo";
 check_nonexisting_cluster_error "pg_upgradecluster $MAJORS[0] foo";
 check_nonexisting_cluster_error "pg_ctlcluster 4.5 foo stop";
 check_nonexisting_cluster_error "pg_ctlcluster $MAJORS[0] foo stop";
+
+check_clean;
+
+# check that pg_dropcluster copes with partially existing cluster
+# configurations (which can happen if the disk becomes full)
+
+mkdir '/etc/postgresql/';
+mkdir "/etc/postgresql/$MAJORS[-1]";
+mkdir "/etc/postgresql/$MAJORS[-1]/broken" or die "mkdir: $!";
+symlink "/var/lib/postgresql/$MAJORS[-1]/broken", "/etc/postgresql/$MAJORS[-1]/broken/pgdata" or die "symlink: $!";
+
+unlike_program_out 0, "pg_dropcluster $MAJORS[-1] broken", 0, qr/error/i, 
+    'pg_dropcluster cleans up broken cluster configuration (only /etc with pgdata)';
+
+check_clean;
+
+mkdir '/etc/postgresql/';
+mkdir '/var/lib/postgresql/';
+mkdir "/etc/postgresql/$MAJORS[-1]" and 
+mkdir "/etc/postgresql/$MAJORS[-1]/broken";
+mkdir "/var/lib/postgresql/$MAJORS[-1]";
+mkdir "/var/lib/postgresql/$MAJORS[-1]/broken";
+mkdir "/var/lib/postgresql/$MAJORS[-1]/broken/base" or die "mkdir: $!";
+symlink "/var/lib/postgresql/$MAJORS[-1]/broken", "/etc/postgresql/$MAJORS[-1]/broken/pgdata" or die "symlink: $!";
+open F, ">/etc/postgresql/$MAJORS[-1]/broken/postgresql.conf" or die "open: $!";
+close F;
+open F, ">/var/lib/postgresql/$MAJORS[-1]/broken/PG_VERSION" or die "open: $!";
+close F;
+
+unlike_program_out 0, "pg_dropcluster $MAJORS[-1] broken", 0, qr/error/i, 
+    'pg_dropcluster cleans up broken cluster configuration (/etc with pgdata and postgresql.conf and partial /var)';
+
+check_clean;
+
+# check that a failed pg_createcluster leaves no cruft behind: create a 10 MB
+# loop partition, temporarily mount it to /var/lib/postgresql
+my $loop = new File::Temp (UNLINK => 1) or die "could not create temporary file: $!";
+truncate $loop, 10000000 or die "truncate: $!";
+close $loop;
+END { system "umount /var/lib/postgresql 2>/dev/null; losetup -d /dev/loop7 2>/dev/null"; }
+(system "losetup /dev/loop7 $loop && mkfs.ext2 /dev/loop7 >/dev/null 2>&1 && mount -t ext2 /dev/loop7 /var/lib/postgresql") == 0 or 
+    die 'Could not create and mount loop partition';
+
+like_program_out 0, "pg_createcluster $MAJORS[-1] test", 1, qr/No space left on device/i,
+    'pg_createcluster fails due to insufficient disk space';
+
+ok_dir '/var/lib/postgresql', ['lost+found'], 
+    'No files in /var/lib/postgresql /left behind after failed pg_createcluster';
+ok_dir '/etc/postgresql', [], 
+    'No files in /etc/postgresql /left behind after failed pg_createcluster';
+
+system "umount /var/lib/postgresql; losetup -d /dev/loop7";
 
 check_clean;
 
