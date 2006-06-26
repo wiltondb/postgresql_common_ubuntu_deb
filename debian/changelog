@@ -1,3 +1,26 @@
+postgresql-common (56) unstable; urgency=low
+
+  * debian/init.d-functions, status(): Exit with code 3 if any cluster is
+    down, to get a bit closer to LSB specification (which does not
+    sufficiently specify the case of controlling multiple processes in one
+    init script). Thanks to Ross Boylan <RossBoylan@stanfordalumni.org>!
+    Closes: #358152
+  * pg_ctlcluster:
+    - start: Create an external PID file /var/run/postgresql/
+      <version>-<cluster>.pid for 8.0+ versions (7.4 doesn't support this yet)
+      unless 'external_pid_file' is already set in postgresql.conf.
+      Closes: #180849, #184782
+    - stop: Remove this external pid file (this should be done by the
+      postmaster itself, but 8.1.4 does not).
+  * t/020_create_sql_remove.t: Check that starting a cluster creates a PID
+    file in /var/run/postgresql/, but doesn't if external_pid_file was set
+    explicitly.
+  * t/030_errors.t: Adapt to new PID file creation behaviour.
+  * t/030_errors.t: modprobe loop before setting up the test loopback device.
+  * debian/supported-versions: Add Ubuntu 6.10.
+
+ -- Martin Pitt <mpitt@debian.org>  Mon, 26 Jun 2006 19:02:41 +0200
+
 postgresql-common (55) unstable; urgency=low
 
   * Add missing procps dependency to p-common. Closes: #369768
@@ -556,7 +579,7 @@ postgresql-common (29) unstable; urgency=low
     - Closes: #224047
   * Fix testsuite expected output for new upstream versions (7.4.9 and 8.0.4).
 
- -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 27 Oct 2005 23:09:45 -0400
+ -- Martin Pitt <mpitt@debian.org>  Thu, 27 Oct 2005 23:09:45 -0400
 
 postgresql-common (28) unstable; urgency=high
 

@@ -67,7 +67,7 @@ is ((system "pg_ctlcluster $version main start"), 0,
     'pg_ctlcluster succeeds on valid cluster owner uid/gid');
 
 # check socket
-ok_dir '/var/run/postgresql', [], 'No sockets in /var/run/postgresql';
+ok_dir '/var/run/postgresql', ["$version-main.pid"], 'No sockets in /var/run/postgresql';
 ok_dir $socketdir, ['.s.PGSQL.5432', '.s.PGSQL.5432.lock'], "Socket is in $socketdir";
 
 # stop cluster, check sockets
@@ -88,7 +88,7 @@ close F;
 
 ok ((system "pg_ctlcluster $version main start") == 0,
     'cluster starts after removing unix_socket_dir');
-ok_dir '/var/run/postgresql', ['.s.PGSQL.5432', '.s.PGSQL.5432.lock'], 
+ok_dir '/var/run/postgresql', ['.s.PGSQL.5432', '.s.PGSQL.5432.lock', "$version-main.pid"], 
     'Socket is in default dir /var/run/postgresql';
 ok_dir $socketdir, [], "No sockets in $socketdir";
 
@@ -233,7 +233,7 @@ my $loop = new File::Temp (UNLINK => 1) or die "could not create temporary file:
 truncate $loop, 10000000 or die "truncate: $!";
 close $loop;
 END { system "umount /var/lib/postgresql 2>/dev/null; losetup -d /dev/loop7 2>/dev/null"; }
-(system "losetup /dev/loop7 $loop && mkfs.ext2 /dev/loop7 >/dev/null 2>&1 && mount -t ext2 /dev/loop7 /var/lib/postgresql") == 0 or 
+(system "modprobe loop; losetup /dev/loop7 $loop && mkfs.ext2 /dev/loop7 >/dev/null 2>&1 && mount -t ext2 /dev/loop7 /var/lib/postgresql") == 0 or 
     die 'Could not create and mount loop partition';
 
 like_program_out 0, "pg_createcluster $MAJORS[-1] test", 1, qr/No space left on device/i,
