@@ -71,10 +71,11 @@ sub init_db {
 
 # move a file to a directory with defined permissions; if $version is smaller
 # than 8.0, put a symlink at the old location (PostgreSQL prior to 8.0 does not
-# support configurable conffiles).
-# Arguments: <source file> <target dir> <uid> <gid> <perms>
+# support configurable conffiles), otherwise set <postgresql.conf option> in
+# postgresql.conf.
+# Arguments: <source file> <target dir> <uid> <gid> <perms> <postgresql.conf option>
 sub move_conffile {
-    ($file, $target, $uid, $gid, $perms) = @_;
+    ($file, $target, $uid, $gid, $perms, $confopt) = @_;
     $realfile = $file;
     while (-l $realfile) {
         $realfile = readlink $realfile;
@@ -84,9 +85,9 @@ sub move_conffile {
 	install_file $realfile, $target, $uid, $gid, $perms;
         unlink $file, $realfile;
 
-        if ($version < 8) {
-            @pathcomps = split ('/', $file);
-            $target .= '/' . $pathcomps[-1];
+	@pathcomps = split ('/', $file);
+	$target .= '/' . $pathcomps[-1];
+        if ($version lt '8') {
             $oldgid = $);
             $olduid = $>;
             $) = $gid;
@@ -94,7 +95,9 @@ sub move_conffile {
             symlink $target, $file;
             $> = $olduid;
             $) = $oldgid;
-        }
+        } else {
+	    PgCommon::set_conf_value $version, $cluster, 'postgresql.conf', $confopt, $target if $confopt;
+	}
     } else {
         error "move_conffile: required configuration file $realfile does not exist";
     }
@@ -296,14 +299,19 @@ chown $owneruid, $ownergid, $pgdata;
 set_cluster_start_conf $version, $cluster, $startconf;
 
 # move conffiles, setup permissions
-move_conffile "$datadir/pg_hba.conf", $confdir, $owneruid, $ownergid, "640";
-move_conffile "$datadir/pg_ident.conf", $confdir, $owneruid, $ownergid, "640";
-move_conffile "$datadir/postgresql.conf", $confdir, $owneruid, $ownergid, "644";
+move_conffile "$datadir/postgresql.conf", $confdir, $owneruid, $ownergid, '644';
+move_conffile "$datadir/pg_hba.conf", $confdir, $owneruid, $ownergid, '640', 'hba_file';
+move_conffile "$datadir/pg_ident.conf", $confdir, $owneruid, $ownergid, '640', 'ident_file';
 
 # add access for database superuser
 setup_pg_hba if $newcluster;
 
 # configure socket directory
+if ($socketdir && ! -e $socketdir) {
+    if (system 'install', '-d', '-m', '0755', '-o', $owneruid, '-g', $ownergid, $socketdir) {
+        error 'could not create socket directory';
+    }
+}
 $orig_euid = $>;
 $> = $owneruid;
 unless ($socketdir) {
@@ -391,6 +399,11 @@ chmod 0644, "$confdir/environment";
 
 $createsuccess = 1;
 
+# configure to create external PID file
+if ($version ge '8.0' && $socketdir eq '/var/run/postgresql') {
+    PgCommon::set_conf_value $version, $cluster, 'postgresql.conf', 'external_pid_file', "/var/run/postgresql/$version-$cluster.pid";
+}
+
 # start it if requested
 if ($start) {
     system '/usr/bin/pg_ctlcluster', $version, $cluster, 'start';
@@ -453,6 +466,8 @@ used to generate a new cluster structure. If the data directory already exists,
 it is integrated into the B<postgresql-common> structure by moving the
 configuration file and creating the C<pgdata> link.
 
+If a custom socket directory is given and it does not exist, it is created.
+
 If the log file does not exist, it is created. In any case the permissions are
 adjusted to allow write access to the cluster owner. Please note that
 C<postgresql.conf> can be customized to specify C<log_directory> and/or
@@ -495,14 +510,15 @@ Explicitly set the directory where the L<postmaster(1)> server stores the Unix
 socket for local connections. Defaults to C</var/run/postgresql/> for clusters
 owned by the user B<postgres>, and C</tmp> for clusters owned by other users.
 Please be aware that C</tmp> is an unsafe directory since everybody can create
-a socket there and impersonate the database server.
+a socket there and impersonate the database server. If the given directory does
+not exist, it is created with appropriate permissions.
 
 =item B<-l> I<path>, B<--logfile=>I<path>
 
 Explicitly set the path for the L<postmaster(1)> server log file. Defaults to
 C</var/log/postgresql/postgresql->I<version>C<->I<cluster>C<.log>.
 
-=item B<-e> I<encoding>, B<--encoding> I<encoding>
+=item B<-e> I<encoding>, B<--encoding=>I<encoding>
 
 Select the encoding of the template database. This will also be the default
 encoding of any database you create later, unless you override it there. The
@@ -510,7 +526,7 @@ default is derived from the locale, or SQL_ASCII if that does not work.  The
 character sets supported by the PostgreSQL server are described in the
 documentation.
 
-=item B<-p> I<port>, B<--port> I<port>
+=item B<-p> I<port>, B<--port=>I<port>
 
 Select the port the new cluster listens on (for the Unix socket and the TCP
 port); this must be a number between 1024 and 65535, since PostgreSQL does not
@@ -523,7 +539,7 @@ Immediately start a server for the cluster after creating it (i. e. call
 C<pg_ctlcluster> I<version cluster> C<start> on it). By default, the cluster is
 not started.
 
-=item B<--start-conf>  B<auto>|B<manual>|B<disabled>
+=item B<--start-conf=>B<auto>|B<manual>|B<disabled>
 
 Set the initial value in the C<start.conf> configuration file. See B<STARTUP
 CONTROL> below. By default, B<auto> is used, which means that the cluster is

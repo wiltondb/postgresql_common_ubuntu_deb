@@ -1,3 +1,58 @@
+postgresql-common (62) unstable; urgency=low
+
+  * t/080_start.conf.t: Check that stop'ing a cluster works even if the
+    cluster is disabled (test for bug #386996).
+  * pg_ctlcluster: Allow 'stop' and 'autovac-stop' for disabled clustes.
+    Closes: #386996
+  * Reduce options passed to postmaster at runtime to shorten command line and
+    make the configuration more obvious and explicit:
+    - pg_ctlcluster: Do not pass unix_socket_dir/hba_file/ident_file if it is
+      already defined in postgresql.conf.
+    - pg_createcluster: If we create a cluster >= 8.0, set hba_file,
+      ident_file, and external_pid_file in postgresql.conf.
+    - 070_non_postgres_clusters.t: Fix expected output accordingly and
+      use 'ls' for socket check instead of looking at the command line.
+    - Closes: #384999
+
+ -- Martin Pitt <mpitt@debian.org>  Mon, 18 Sep 2006 09:12:20 +0200
+
+postgresql-common (61) unstable; urgency=low
+
+  * pg_lsclusters: Remove trailing spaces from output, adapt test suite
+    accordingly.
+  * pg_upgradecluster: Correctly pass custom datadir to pg_createcluster.
+    Closes: #385034
+  * Add t/041_upgrade_custompaths.t: Test upgrading with a custom data
+    directory and log file path (this also covers bug #385034).
+
+ -- Martin Pitt <mpitt@debian.org>  Mon, 11 Sep 2006 13:08:58 +0200
+
+postgresql-common (60) unstable; urgency=low
+
+  * Update Czech debconf translations, thanks to Miroslav Kure.
+    Closes: #384757
+  * t/090_multicluster.t: Check that $PGHOST and $PGDATABASE environment
+    variables are respected and have the correct precedence. (This reproduces
+    #385971). Now this test has full coverage of all libpq environment
+    variables but $PGUSER (which is not used at all anywhere).
+  * pg_wrapper: Do not override $PGDATABASE and $PGHOST with user_clusters
+    map. Closes: #385971
+  * Update Dutch debconf translations, thanks to Vincent Zweije.
+    Closes: #386704
+  * pg_createcluster: Fix POD to have consistent long-option syntax. Thanks to
+    Bastian Kleineidam! (Part of bug #386148)
+  * Improve handling of custom socket directories:
+    - pg_createcluster: Create a nonexisting directory.
+    - pg_dropcluster: Remove empty socket directory unless it's /tmp or
+      /var/run/postgresql.
+    - Thanks to Bastian Kleineidam for the suggestions.
+    - t/030_errors.t: Do not create our custom socket dir ourselves any more,
+      since pg_createcluster is now supposed to handle that (thus providing a
+      test case).
+    - Closes:  #386148
+
+ -- Martin Pitt <mpitt@debian.org>  Sun, 10 Sep 2006 13:31:11 +0200
+
 postgresql-common (59) unstable; urgency=low
 
   * t/001_packages.t: Check that p-plpython-X.Y is installed.
