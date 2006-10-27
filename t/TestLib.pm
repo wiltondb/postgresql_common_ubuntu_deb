@@ -45,7 +45,7 @@ sub pidof {
     open F, '-|', 'ps', 'h', '-C', $_[0], '-o', 'pid,cmd' or die "open: $!";
     my @pids;
     while (<F>) {
-        if ((index $_, $_[0]) >= 0) {
+        if ((index $_, $_[0]) >= 0 && (index $_, '/') >= 0) {
             push @pids, (split)[0];
         }
     }
@@ -150,10 +150,11 @@ sub unlike_program_out {
 
 # Check that all PostgreSQL related directories are empty and no
 # postmaster/pg_autovacuum processes are running. Should be called at the end
-# of all tests. Does 9 tests.
+# of all tests. Does 10 tests.
 sub check_clean {
     is (`pg_lsclusters -h`, '', 'No existing clusters');
     is ((ps 'postmaster'), '', 'No postmaster processes left behind');
+    is ((ps 'postgres'), '', 'No postgres processes left behind');
     is ((ps 'pg_autovacuum'), '', 'No pg_autovacuum processes left behind');
 
     my @check_dirs = ('/etc/postgresql', '/var/lib/postgresql',
@@ -166,6 +167,6 @@ sub check_clean {
         }
     }
 
-    is_program_out 0, 'netstat -avptn | grep ":543[2-9]"', 1, '',
+    is_program_out 0, 'netstat -avptn | grep ":543[2-9]\\b"', 1, '',
 	'PostgreSQL TCP ports are closed';
 }

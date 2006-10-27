@@ -94,9 +94,22 @@ sub adapt_conffiles {
             'autovacuum', $info{'avac_enable'} ? 'yes' : 'no';
 
         # bgwriter_percent -> bgwriter_{lru,all}_percent transition
-        rename_ \%c, 'bgwriter_percent', 'bgwriter_all_percent' if $newversion ge '8.1';
+        rename_ \%c, 'bgwriter_percent', 'bgwriter_all_percent';
         # bgwriter_maxpages -> bgwriter_{lru,all}_maxpages transition
         rename_ \%c, 'bgwriter_maxpages', 'bgwriter_all_maxpages';
+    }
+
+    if ($newversion ge '8.2') {
+        # preload_libraries -> shared_preload_libraries transition
+        rename_ \%c, 'preload_libraries', 'shared_preload_libraries';
+
+	# australian_timezones -> timezone_abbreviations transition
+	my $australian_timezones = config_bool $c{'australian_timezones'};
+	if (defined $australian_timezones) {
+	    PgCommon::replace_conf_value $newversion, $cluster, 'postgresql.conf',
+		    'australian_timezones', 'deprecated in favor of timezone_abbreviations', 
+		    'timezone_abbreviations', ($australian_timezones ?  'Australia' : 'Default');
+	}
     }
 }
 
@@ -283,25 +296,36 @@ if (!fork) {
     close F;
     error 'could not get list of databases' if $?;
 
-    # Upgrade roles (global objects)
+    # real global objects data (roles)
     print "Creating globals...\n";
     open SOURCE, '-|', $pg_dumpall, '-h', $oldsocket, '-p', $info{'port'},
-         '-g', '-c' or 
-        error 'Could not execute pg_dumpall for old cluster';
-    open SINK, '|-', $psql, '-h', $newsocket, '-p', $newinfo{'port'},
-        '-q', '-d', 'template1' or 
-        error 'Could not execute psql for new cluster';
+         '-g' or error 'Could not execute pg_dumpall for old cluster';
+    my $data = '';
     while (read SOURCE, $buffer, 1048576) {
-        print SINK $buffer;
+	$data .= $buffer;
     }
     close SOURCE;
     ($? == 0) or exit 1;
+
+    # remove creation of db superuser role to avoid error message
+    $data =~ s/^CREATE (ROLE|USER) $owner;\s*$//m;
+
+    # create global objects int target cluster
+    open SINK, '|-', $psql, '-h', $newsocket, '-p', $newinfo{'port'},
+        '-q', '-d', 'template1' or 
+        error 'Could not execute psql for new cluster';
+    print SINK $data;
     close SINK;
     ($? == 0) or exit 1;
     
     # Upgrade databases
     for my $db (keys %databases) {
         next if $db eq 'template0';
+
+	if ($db eq 'postgres' && $newversion ge '8.1') {
+	    (system 'dropdb', '--cluster', "$newversion/$cluster", '-q', 'postgres');
+	}
+
         unless ($databases{$db}) {
             print "Temporary enabling access to database $db\n";
             (system $oldpsql, '-h', $oldsocket, '-p', $info{'port'}, '-q', 
@@ -310,17 +334,32 @@ if (!fork) {
                 error 'Could not enable access to database';
         }
 
+	print "Fixing hardcoded library paths for stored procedures...\n";
+	(system $psql, '-h', $oldsocket, '-p', $info{'port'}, '-q', '-d',
+	    $db, '-c', "update pg_proc set probin = decode(replace(\
+		replace(encode(probin, 'escape'), '/usr/lib/postgresql/lib', '\$libdir'), \
+		'/usr/lib/postgresql/$version/lib', '\$libdir'), 'escape')") == 0 or
+	    error 'Could not fix library paths';
+
         print 'Upgrading database ', $db, "...\n";
         open SOURCE, '-|', $pg_dump, '-h', $oldsocket, '-p', $info{'port'},
              '-Fc', $db or 
             error 'Could not execute pg_dump for old cluster';
 	if ($upgrade_scripts) {
-	    open SINK, '|-', $pg_restore, '-h', $newsocket, '-p', $newinfo{'port'},
-		'-X', 'no-data-for-failed-tables', '-d', 'template1', '-C' or 
-		error 'Could not execute pg_restore for new cluster';
+	    if ($newversion eq '8.1') {
+		open SINK, '|-', $pg_restore, '-h', $newsocket, '-p', $newinfo{'port'},
+		    '-X', 'no-data-for-failed-tables', '-d', 'template1', 
+		    ($db eq 'template1' ? '-O' : '-C') or 
+		    error 'Could not execute pg_restore for new cluster';
+	    } else {
+		open SINK, '|-', $pg_restore, '-h', $newsocket, '-p', $newinfo{'port'},
+		    '--no-data-for-failed-tables', '-d', 'template1', 
+		    ($db eq 'template1' ? '-O' : '-C') or 
+		    error 'Could not execute pg_restore for new cluster';
+	    }
 	} else {
 	    open SINK, '|-', $pg_restore, '-h', $newsocket, '-p', $newinfo{'port'},
-		'-d', 'template1', '-C' or 
+		'-d', 'template1', ($db eq 'template1' ? '-O' : '-C') or 
 		error 'Could not execute pg_restore for new cluster';
 	}
         while (read SOURCE, $buffer, 1048576) {
@@ -329,14 +368,6 @@ if (!fork) {
         close SOURCE;
         ($? == 0) or exit 1;
         close SINK;
-        print "Fixing hardcoded library paths for stored procedures...\n";
-        (system $psql, '-h', $newsocket, '-p', $newinfo{'port'}, '-q', '-d',
-            $db, '-c', "update pg_proc set probin = decode(replace(\
-                replace(encode(probin, 'escape'), '/usr/lib/postgresql/lib', '\$libdir'), \
-                '/usr/lib/postgresql/$version/lib', '\$libdir'), 'escape')") == 0 or
-            error 'Could not fix library paths';
-        # FIXME: we will get an error on template1 since it already exists
-        exit 1 if $db ne 'template1' && $? != 0;
         print 'Analyzing database ', $db, "...\n";
         (system $psql, '-h', $newsocket, '-p', $newinfo{'port'}, '-q', 
             '-d', $db, '-c', 'ANALYZE') == 0 or

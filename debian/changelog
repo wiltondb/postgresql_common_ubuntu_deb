@@ -1,3 +1,77 @@
+postgresql-common (66) unstable; urgency=low
+
+  * Add Japanese debconf translations. Thanks to Hideki Yamane!
+    Closes: #393055
+  * pg_upgradecluster: Use -X no-data-for-failed-tables only for 8.1. In
+    8.2beta2 this got renamed to --no-data-for-failed-tables.
+
+ -- Martin Pitt <mpitt@debian.org>  Fri, 27 Oct 2006 11:38:50 +0200
+
+postgresql-common (65) unstable; urgency=low
+
+  * pg_upgradecluster: Quiesce dropdb for already existing 'postgres'
+    database.
+  * pg_upgradecluster: Avoid harmless, but confusing error messages about role
+    creation:
+    - Do not use -c for pg_dumpall, since the target roles should not yet
+      exist anyway.
+    - Filter out the 'CREATE (ROLE|USER)' command for the db superuser, since
+      it will already exist.
+    - Testsuite: Check that pg_upgradecluster output contains no server error
+      messages.
+    - Closes: #389930
+
+ -- Martin Pitt <mpitt@debian.org>  Sat,  7 Oct 2006 13:54:34 +0200
+
+postgresql-common (64) unstable; urgency=low
+
+  * Fix pg_ctlcluster regression from 63: 'database system is starting up'
+    fatal error message caused immediate abortion of startup checks. Make the
+    check easier and more robust, adapt test cases accordingly.
+  * t/020_create_sql_remove.t: Add check that PL/Perl works. Check that
+    -plperl-X.Y. is installed in t/001_packages.t.
+  * t/{040_upgrade.t,041_upgrade_custompaths.t}: Check for pg_restore error
+    messages during upgrade.
+  * pg_upgradecluster: Avoid pg_restore errors during upgrade (they were
+    nonfatal, but look ugly:)
+    - Drop 'postgres' db in 8.1+ target cluster if the source cluster already
+      has it.
+    - Do not use pg_restore's --create for template1.
+    - Fix hardcoded library paths before dumping/restoring the cluster, not
+      after, to avoid error messages about failed library loads.
+
+ -- Martin Pitt <mpitt@debian.org>  Fri,  6 Oct 2006 18:35:46 +0200
+
+postgresql-common (63) unstable; urgency=low
+
+  * t/090_multicluster.t, t/100_upgrade_scripts.t: Replace hardcoded '8.1'
+    versions in test data with appropriate $MAJORS values.
+  * pg_createcluster: Add configure_8_2().
+  * pg_ctlcluster, check_running_postmaster(): Check for both 'postmaster' and
+    'postgres' processes to also work for 8.2.
+  * t/TestLib.pm, check_clean(): Also check for running 'postgres' processes
+    (since that's how the server is called in 8.2+). Update number of tests
+    everywhere.
+  * t/TestLib.pm, check_clean(): Fix regexp for netstat port grepping so that
+    ports like '54321' do not match.
+  * t/TestLib.pm, pidof(): Make pidof() strict enough to not catch the stats
+    collector and writer subprocesses.
+  * t/*.t: Various small adaptions to work with 8.2, too.
+  * t/060_obsolete_confparams.t: Add full configuration for 8.1, to test
+    8.1->8.2 upgrade.
+  * pg_upgradecluster: When upgrading to 8.2, transition changed configuration
+    options:
+    - preload_libraries -> shared_preload_libraries
+    - australian_timezones -> timezone_abbreviations
+  * pg_ctlcluster: Instead of parsing pg_hba.conf, just try to connect with
+    setting PGPASSWORD to a bogus value, and check for authentication errors.
+    This is more robust and more elegant, and also covers nonstandard
+    authentication schemes correctly. Closes: #388419
+  * debian/supported-versions: Recklessly consider 8.2 as supported to avoid
+    whining if 8.2 package gets backported.
+
+ -- Martin Pitt <mpitt@debian.org>  Sat, 30 Sep 2006 12:44:08 +0200
+
 postgresql-common (62) unstable; urgency=low
 
   * t/080_start.conf.t: Check that stop'ing a cluster works even if the

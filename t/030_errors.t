@@ -6,7 +6,7 @@ require File::Temp;
 
 use lib 't';
 use TestLib;
-use Test::More tests => 124;
+use Test::More tests => 131;
 
 use lib '/usr/share/postgresql-common';
 use PgCommon;
@@ -117,6 +117,8 @@ is_program_out 'postgres', "pg_ctlcluster $version main start", 0,
 like_program_out 'postgres', 'pg_lsclusters -h', 0, qr/online/, 'cluster is online';
 is ((exec_as 'postgres', "pg_ctlcluster $version main stop"), 0, 
     'pg_ctlcluster stop succeeds');
+like_program_out 'postgres', 'pg_lsclusters -h', 0, qr/down/, 'cluster is down';
+ok (! -e "/var/lib/postgresql/$version/main/postmaster.pid", 'no pid file left');
 
 # corrupt PID file while server is down
 create_foo_pid;
@@ -156,7 +158,7 @@ close F;
 chmod 0644, "/etc/postgresql/$version/main/pg_hba.conf" or die "chmod: $!";
 
 like_program_out 'postgres', "pg_ctlcluster $version main start", 0, 
-    qr/WARNING.*invalid pg_hba.conf/i,
+    qr/WARNING.*connection to the database failed.*pg_hba.conf/is,
     'pg_ctlcluster start warns about invalid pg_hba.conf';
 is_program_out 'postgres', "pg_ctlcluster $version main stop", 0, '', 'stopping cluster';
 
@@ -167,8 +169,8 @@ close F;
 chmod 0644, "/etc/postgresql/$version/main/pg_hba.conf" or die "chmod: $!";
 
 like_program_out 'postgres', "pg_ctlcluster $version main start", 0,
-    qr/WARNING.*pg_hba.conf.*passwordless/i,
-    'pg_ctlcluster start warns about invalid pg_hba.conf';
+    qr/WARNING.*connection to the database failed.*postgres/is,
+    'pg_ctlcluster start warns about absence of passwordless superuser connection';
 is_program_out 'postgres', "pg_ctlcluster $version main stop", 0, '', 'stopping cluster';
 
 # restore pg_hba.conf
