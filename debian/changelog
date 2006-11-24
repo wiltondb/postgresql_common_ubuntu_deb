@@ -1,3 +1,15 @@
+postgresql-common (68) unstable; urgency=low
+
+  * debian/supported-versions: Add Debian 4.0. Closes: #399978
+  * debian/postgresql-common.postinst: Use adduser option --quiet for adding
+    postgres to ssl-cert. Closes: #399979
+  * pg_createcluster: Enable timestamps in log files by default. Other system
+    log files have timestamps, too, and they are useful. Closes: #395554
+  * t/040_upgrade.t: Fix number of tests if oldest installed PostgreSQL
+    version is < 8.0.
+
+ -- Martin Pitt <mpitt@debian.org>  Fri, 24 Nov 2006 21:01:30 +0100
+
 postgresql-common (67) unstable; urgency=low
 
   *t/040_upgrade.t: Skip the user/group name clash test when there are only
