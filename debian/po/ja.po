@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: 65\n"
 "Report-Msgid-Bugs-To: mpitt@debian.org\n"
-"POT-Creation-Date: 2006-10-10 00:06+0900\n"
+"POT-Creation-Date: 2006-06-29 23:20+0200\n"
 "PO-Revision-Date: 2006-10-10 00:00+0900\n"
 "Last-Translator: Hideki Yamane (Debian-JP) <henrich@debian.or.jp>\n"
 "Language-Team: Japanese <debian-japanese@lists.debian.org>\n"
@@ -16,13 +16,13 @@ msgstr ""
 
 #. Type: note
 #. Description
-#: ../postgresql-common.templates:1001
+#: ../postgresql-common.templates:3
 msgid "Obsolete major version ${old}"
 msgstr "利用できなくなったメジャーバージョン ${old}"
 
 #. Type: note
 #. Description
-#: ../postgresql-common.templates:1001
+#: ../postgresql-common.templates:3
 msgid ""
 "The PostgreSQL version ${old} is obsolete, but you still have the server and/"
 "or client package installed. Please install the latest packages (postgresql-"
@@ -37,7 +37,7 @@ msgstr ""
 
 #. Type: note
 #. Description
-#: ../postgresql-common.templates:1001
+#: ../postgresql-common.templates:3
 msgid ""
 "Please be aware that the installation of postgresql-${latest} will "
 "automatically create a default cluster ${latest}/main. If you want to "
@@ -52,7 +52,7 @@ msgstr ""
 
 #. Type: note
 #. Description
-#: ../postgresql-common.templates:1001
+#: ../postgresql-common.templates:3
 msgid ""
 "The old server and client packages are not supported any more. After having "
 "upgraded the existing clusters, you should remove the postgresql-${old} and "
@@ -64,13 +64,13 @@ msgstr ""
 
 #. Type: note
 #. Description
-#: ../postgresql-common.templates:2001
+#: ../postgresql-common.templates:21
 msgid "Untransitioned postgresql package"
 msgstr "postgresql パッケージが移行できません"
 
 #. Type: note
 #. Description
-#: ../postgresql-common.templates:2001
+#: ../postgresql-common.templates:21
 msgid ""
 "The current postgresql package is in state 'removed', but its data and "
 "configuration files are still present in the system. This is  incompatible "
@@ -82,13 +82,13 @@ msgstr ""
 
 #. Type: note
 #. Description
-#: ../postgresql-common.templates:2001
+#: ../postgresql-common.templates:21
 msgid "You need to do one of the following:"
 msgstr "以下のどれかを選ぶ必要があります:"
 
 #. Type: note
 #. Description
-#: ../postgresql-common.templates:2001
+#: ../postgresql-common.templates:21
 msgid ""
 "(1) If you do not need the databases and configuration files any more, purge "
 "the old packages (dpkg -P postgresql postgresql-client)."
@@ -98,7 +98,7 @@ msgstr ""
 
 #. Type: note
 #. Description
-#: ../postgresql-common.templates:2001
+#: ../postgresql-common.templates:21
 msgid ""
 "(2) If you want to retain the current databases and configuration files, "
 "upgrade to the transitional packages by installing the latest version of "
@@ -110,6 +110,6 @@ msgstr ""
 
 #. Type: note
 #. Description
-#: ../postgresql-common.templates:2001
+#: ../postgresql-common.templates:21
 msgid "After that you can reattempt this installation."
 msgstr "その後、インストールを再試行してください。"

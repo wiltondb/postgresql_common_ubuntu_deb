@@ -1,3 +1,23 @@
+postgresql-common (69) unstable; urgency=medium
+
+  * Urgency medium, only safe fixes and this needs to go into Etch due to
+    first bug fix.
+  * debian/supported_versions: Gracefully fall back on an unknown
+    distribution, instead of failing package installation completely.
+    Closes: #400628
+  * debian/supported_versions: Some minor factorization.
+  * Add Spanish debconf translations, thanks to Javier Fernández-Sanguino
+    Peña! Closes: #402198
+  * pg_createcluster: Add --locale and the various --lc_* options that initdb
+    supports, and mention in POD that directly setting --encoding is not
+    recommended. Closes: #395083
+  * t/050_encodings.t: Use pg_createcluster's new --locale option in some test
+    cases.
+  * Make testsuite work with just one installed major version (mainly boils
+    down to disabling upgrade tests).
+
+ -- Martin Pitt <mpitt@debian.org>  Sat,  9 Dec 2006 14:37:42 +0100
+
 postgresql-common (68) unstable; urgency=low
 
   * debian/supported-versions: Add Debian 4.0. Closes: #399978

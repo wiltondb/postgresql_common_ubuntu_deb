@@ -77,9 +77,9 @@ msgid ""
 "configuration files are still present in the system. This is  incompatible "
 "with the new multiversion/multicluster structure."
 msgstr ""
-"Het huidige postgresql pakket is in toestand 'verwijderd' ('removed'), "
-"maar de data en instellingsbestanden zijn nog op het systeem aanwezig. "
-"Dit gaat niet samen met de nieuwe multiversie/multicluster structuur."
+"Het huidige postgresql pakket is in toestand 'verwijderd' ('removed'), maar "
+"de data en instellingsbestanden zijn nog op het systeem aanwezig. Dit gaat "
+"niet samen met de nieuwe multiversie/multicluster structuur."
 
 #. Type: note
 #. Description
@@ -94,8 +94,8 @@ msgid ""
 "(1) If you do not need the databases and configuration files any more, purge "
 "the old packages (dpkg -P postgresql postgresql-client)."
 msgstr ""
-"(1) Indien u de databases en instellingsbestanden niet meer nodig hebt, "
-"wis (purge) de oude pakketten (dpkg -P postgresql postgresql-client)."
+"(1) Indien u de databases en instellingsbestanden niet meer nodig hebt, wis "
+"(purge) de oude pakketten (dpkg -P postgresql postgresql-client)."
 
 #. Type: note
 #. Description
