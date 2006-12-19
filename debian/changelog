@@ -1,3 +1,24 @@
+postgresql-common (70) unstable; urgency=low
+
+  * t/050_encodings: Check that $LC_ALL dominates $LANG on pg_createcluster.
+    This reproduces bug #403239.
+  * pg_createcluster: If $LC_ALL is defined, fix $LANG to $LC_ALL. Servers
+    prior to 8.2 get this wrong and fail over an invalid $LANG even if that is
+    dominated by a valid $LC_ALL. Closes: #403239
+  * Add Brazilian Portugese debconf translations. Thanks to André Luís Lopes!
+    Closes: #403563
+  * t/040_upgrade.t: Check that pg_upgradecluster does not have any stderr
+    output (such as error messages from pg_restore, the server, or Perl
+    warnings). This uncovers #403529.
+  * pg_upgradecluster: Do not mangle {hba,ident,external_pid}_file values from
+    old postgresql.conf if they do not exist at all. This removes the Perl
+    warnings during upgrades from 7.4. Closes: #403529
+  * debian/README.Debian: Describe default cluster setup and give an example
+    for upgrading a cluster if a newer version with the same name already
+    exists.
+
+ -- Martin Pitt <mpitt@debian.org>  Tue, 19 Dec 2006 17:00:27 +0100
+
 postgresql-common (69) unstable; urgency=medium
 
   * Urgency medium, only safe fixes and this needs to go into Etch due to

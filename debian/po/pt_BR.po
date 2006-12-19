@@ -1,25 +1,25 @@
-# Italian (it) translation of debconf templates for postgresql-common
-# Copyright (C) 2006 Software in the Public Interest
+# SOME DESCRIPTIVE TITLE.
+# postgresql-common's Brazilian Portuguese debconf template translation
 # This file is distributed under the same license as the postgresql-common package.
-# Luca Monducci <luca.mo@tiscali.it>, 2006.
+# André Luís Lopes <andrelop@debian.org>, 2006.
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: postgresql-common 66 italian debconf templates\n"
+"Project-Id-Version: postgresql-common\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2006-10-29 04:33+0100\n"
-"PO-Revision-Date: 2006-11-01 20:50+0100\n"
-"Last-Translator: Luca Monducci <luca.mo@tiscali.it>\n"
-"Language-Team: Italian <tp@lists.linux.it>\n"
+"POT-Creation-Date: 2006-12-10 04:33+0100\n"
+"PO-Revision-Date: 2006-12-17 22:02-0200\n"
+"Last-Translator: André Luís Lopes <andrelop@debian.org>\n"
+"Language-Team: Debian-BR Project <debian-l10n-portuguese@lists.debian.org>\n"
 "MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=ISO-8859-1\n"
+"Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
 #. Type: note
 #. Description
 #: ../postgresql-common.templates:1001
 msgid "Obsolete major version ${old}"
-msgstr "La versione ${old} � obsoleta"
+msgstr "Versão maior ${old} obsoleta"
 
 #. Type: note
 #. Description
@@ -30,10 +30,11 @@ msgid ""
 "${latest} and postgresql-client-${latest}) and upgrade your existing "
 "${oldversion} clusters with pg_upgradecluster (see manpage)."
 msgstr ""
-"La versione ${old} di PostgreSQL � obsoleta, ma alcuni dei pacchetti server "
-"e/o client sono ancora installati. Installare i pacchetti pi� recenti "
-"(postgresql-${latest} e postgresql-client-${latest}) e aggiornare i cluster "
-"${oldversion} esistenti con pg_upgradecluster (si veda la pagina man)."
+"O PostgreSQL versão ${old} é obsoleto, mas você ainda possui os "
+"pacotes servidor e/ou cliente instalados. Por favor, instale os "
+"últimos pacotes (postgresql-${latest} e postgresql-client-${latest}) "
+"e atualize seus cluster ${oldversion} existentes com o "
+"pg_upgradecluster (consulte a página de manual)."
 
 #. Type: note
 #. Description
@@ -45,10 +46,11 @@ msgid ""
 "${latest} cluster (pg_dropcluster --stop ${latest} main, see manpage for "
 "details)."
 msgstr ""
-"Attenzione: l'installazione di postgresql-${latest} crea automaticamente "
-"il cluster predefinito ${latest}/main. Se si vuole aggiornare il cluster "
-"${old}/main � necessario rimuovere cluster ${latest} dopo la sua creazione "
-"(pg_dropcluster --stop ${latest} main, si veda la pagina man per i dettagli)."
+"Por favor, esteja ciente de que a instalação do postgresql-${latest} "
+"irá criar automaticamente um cluster padrão ${latest}/main. Caso "
+"você queira atualizar o cluster ${latest}/main, você precisa remover "
+"o cluster ${latest} já existente (pg_dropcluster --stop ${latest} "
+"main, consulte a página de manual para maiores detalhes."
 
 #. Type: note
 #. Description
@@ -58,15 +60,15 @@ msgid ""
 "upgraded the existing clusters, you should remove the postgresql-${old} and "
 "postgresql-client-${old} packages."
 msgstr ""
-"I vecchi pacchetti di server e client non sono pi� supportati. Dopo aver "
-"aggiornato il cluster esistente � consigliabile rimuovere i pacchetti "
+"Os antigos pacotes servidor e cliente não são mais suportados. Após "
+"ter atualizado os cluster existentes, você deverá remover os pacotes "
 "postgresql-${old} e postgresql-client-${old}."
 
 #. Type: note
 #. Description
 #: ../postgresql-common.templates:2001
 msgid "Untransitioned postgresql package"
-msgstr "Pacchetti di postgresql non rimossi"
+msgstr "Pacote postgresql n]ao transicionado"
 
 #. Type: note
 #. Description
@@ -76,15 +78,15 @@ msgid ""
 "configuration files are still present in the system. This is  incompatible "
 "with the new multiversion/multicluster structure."
 msgstr ""
-"Lo stato attuale del pacchetto postgresql � \"rimosso\" ma i dati e la sua "
-"configurazione sono ancora presenti nel sistema. Questo non � compatibile "
-"con la nuova struttura multiversione/multicluster."
+"O pacote postgresql atual está no estado 'removido', mas seus dados "
+"e arquivos de configuração ainda estão presentes no sistema. Isto é "
+"incompatível com a nova estrutura multiversão/multicluster."
 
 #. Type: note
 #. Description
 #: ../postgresql-common.templates:2001
 msgid "You need to do one of the following:"
-msgstr "� necessario effettare una di queste operazioni:"
+msgstr "Você precisa adotar uma das seguintes estratégias:"
 
 #. Type: note
 #. Description
@@ -93,9 +95,9 @@ msgid ""
 "(1) If you do not need the databases and configuration files any more, purge "
 "the old packages (dpkg -P postgresql postgresql-client)."
 msgstr ""
-"1. Se non si ha pi� bisogno dei database e dei file di configurazione, "
-"effettuare il \"purge\" dei vecchi pacchetti (dpkg -P postgresql postgresql-"
-"client)."
+"(1) Caso você não precise mais das base de dados e dos arquivos de "
+"configuração, apague os pacotes antigos (usando dpkg -P postgresql "
+"postgresql-client)."
 
 #. Type: note
 #. Description
@@ -105,12 +107,12 @@ msgid ""
 "upgrade to the transitional packages by installing the latest version of "
 "'postgresql' (apt-get install postgresql)."
 msgstr ""
-"2. Se si vogliono mantenere gli attuali database e file di configurazione, "
-"aggiornare ai pacchetti di transizione installando l'ultima versione del "
-"pacchetto \"postgresql\" (apt-get install postgresql)."
+"(2) Caso você queira manter as base de dados e os arquivos de "
+"configuração atuais, atualize para os pacotes transacionais instalando "
+"a última versão do 'postgresql' (usando apt-get install postgresql)."
 
 #. Type: note
 #. Description
 #: ../postgresql-common.templates:2001
 msgid "After that you can reattempt this installation."
-msgstr "Dopo ci� � possibile riprovare l'installazione."
+msgstr "Após isso, você pode tentar novamente esta instalação."
