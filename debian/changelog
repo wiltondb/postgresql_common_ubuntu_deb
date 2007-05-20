@@ -1,3 +1,35 @@
+postgresql-common (74) unstable; urgency=low
+
+  * debian/supported_versions:
+    - Match any 4.0* as Debian Etch to get the correct set of supported
+      versions. Closes: #420915
+    - Add Lenny/unstable: only support 8.2.
+    - Add Ubuntu 7.10.
+    - Don't fail if the distribution cannot be determined at all, only print
+      out a warning.
+  * pg_createcluster, pg_ctlcluster, pg_dropcluster, pg_maintenance,
+    pg_upgradecluster: Strip down PATH untainting to the absolute minimum, to
+    not fall over if e. g. /usr/local/bin is misconfigured to be world
+    writable. Closes: #420565
+  * pg_wrapper: Make this script work with taint checks enabled. This happens
+    in a pretty blunt way, since it does not actually make sense to enforce
+    environment variables, etc. It should just not fail when being called from
+    a -T perl script. Closes: #422129
+  * debian/postgresql-common.postinst: Do not hide failures of the init
+    script on restart.
+  * debian/postgresql-common.config, debian/postgresql-common.templates:
+    Remove the check for an untransitioned postgresql, since it was only
+    necessary for the Sarge->Etch upgrade. Update debian/po/*.po.
+  * Remove debian/postgresql-common.preinst, we only needed it for the
+    "untransitioned" test.
+  * debian/control: Move cdbs and debhelper from B-D-I to B-D, since we need
+    them for 'clean'.
+  * Add debian/postgresql-client-common.lintian: Lintian overrides for 'binary
+    without manpage'. The stuff in /usr/bin is just a symlink to pg_wrapper,
+    postgresql-client-* ships the actual manpages for those.
+
+ -- Martin Pitt <mpitt@debian.org>  Sun, 20 May 2007 15:30:19 +0200
+
 postgresql-common (73) unstable; urgency=low
 
   * debian/postgresql-common.dirs: Ship /var/lib/postgresql again, creating it
