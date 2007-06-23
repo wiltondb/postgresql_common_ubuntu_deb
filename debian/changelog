@@ -1,3 +1,19 @@
+postgresql-common (76) unstable; urgency=medium
+
+  * Priority medium since this unbreaks client programs like psql in testing.
+  * pg_wrapper: Revert changes of version 74 to make this work with taint
+    mode. It breaks too many custom setups, and Perl just doesn't allow to
+    untaint $PATH bluntly. If you run pg_wrapper from a perl script with taint
+    checks enabled, you have to clean $PATH yourself. Closes: #427894
+  * t/020_create_sql_remove.t: Check that PL/TCL and PL/TCLu work, so that we
+    now have complete test coverage of all four PLs that are shipped with the
+    core package.
+  * t/001_packages.t: Check that postgresql-pltcl-<version> is installed.
+  * PgCommon.pm, get_cluster_socketdir(): Improve error message if data
+    directory parent is not readable. Closes: #428698
+
+ -- Martin Pitt <mpitt@debian.org>  Sat, 23 Jun 2007 21:52:58 +0200
+
 postgresql-common (75) unstable; urgency=low
 
   The "Never run the test suite without 7.4 just because it is deprecated and
