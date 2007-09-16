@@ -1,3 +1,28 @@
+postgresql-common (78) unstable; urgency=low
+
+  * debian/postgresql-common.postinst: Only clean up
+    /usr/lib/postgresql/dumpall/ on upgrades if it is actually a directory.
+    (Closes: #440596)
+
+ -- Martin Pitt <mpitt@debian.org>  Sun, 16 Sep 2007 20:59:30 +0200
+
+postgresql-common (77) unstable; urgency=low
+
+  * debian/control: Fix obsolete ${Source-Version}.
+  * t/020_create_sql_remove.t: Create fake rotated log files to check that
+    they are cleaned up properly.
+  * pg_dropcluster: Remove rotated logs, too. (part of #431643)
+  * debian/postgresql-common.postinst: Clean up /usr/lib/postgresql/dumpall/
+    junk from the Sarge->Etch postgresql transition. This needs to be kept
+    until after Lenny's release. (part of #431643)
+  * Add debian/postgresql-client-common.postrm: Clean up
+    /var/lib/postgresql/.psql_history on purge. Closes: #431643
+  * debian/postgresql-common.postinst: Create /var/lib/postgresql/ if it does
+    not exist. This should not usually happen, but apparently did anyway.
+    (Closes: #438698)
+
+ -- Martin Pitt <mpitt@debian.org>  Mon, 20 Aug 2007 15:45:28 +0200
+
 postgresql-common (76) unstable; urgency=medium
 
   * Priority medium since this unbreaks client programs like psql in testing.

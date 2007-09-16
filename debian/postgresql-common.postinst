@@ -24,6 +24,7 @@ Please fix this and reinstall this package." >&2
     fi
 
     # ensure home directory ownership
+    mkdir -p /var/lib/postgresql
     chown postgres:postgres /var/lib/postgresql
 
     # nicer log directory permissions
@@ -57,6 +58,14 @@ EOF
 	if getent group ssl-cert >/dev/null; then
 	    adduser --quiet postgres ssl-cert
 	fi
+    fi
+
+    # Clean up junk from the Sarge->Etch postgresql transition; needs to be
+    # kept until Lenny's release
+    if dpkg --compare-versions "$2" lt "77"; then
+        if [ -d /usr/lib/postgresql/dumpall/ ]; then
+            rm -rf /usr/lib/postgresql/dumpall/
+        fi
     fi
 
     # restart all servers
