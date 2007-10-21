@@ -254,9 +254,18 @@ sub set_cluster_port {
 }
 
 # Return cluster data directory.
-# Arguments: <version> <cluster name>
+# Arguments: <version> <cluster name> [<config_hash>]
 sub cluster_data_directory {
-    my $d = readlink "$confroot/$_[0]/$_[1]/pgdata";
+    my $d;
+    if ($_[2]) {
+        $d = ${$_[2]}{'data_directory'};
+    } else {
+        $d = get_conf_value($_[0], $_[1], 'postgresql.conf', 'data_directory');
+    }
+    if (!$d) {
+        # fall back to /pgdata symlink (supported by earlier p-common releases)
+        $d = readlink "$confroot/$_[0]/$_[1]/pgdata";
+    }
     ($d) = $d =~ /(.*)/ if defined $d; #untaint
     return $d;
 }
@@ -279,7 +288,7 @@ sub get_cluster_socketdir {
 
     if ($_[0] && $_[1]) {
         my $datadir = cluster_data_directory $_[0], $_[1];
-        error "Invalid symbolic link $confroot/$_[0]/$_[1]/pgdata" unless $datadir;
+        error "Invalid data directory" unless $datadir;
         my @datadirstat = stat $datadir;
         unless (@datadirstat) {
             my @p = split '/', $datadir;
@@ -398,15 +407,15 @@ $val
 
 # Return a hash with information about a specific cluster.
 # Arguments: <version> <cluster name>
-# Returns: information hash (keys: pgdata, port, running, logfile, configdir,
-# owneruid, ownergid, socketdir)
+# Returns: information hash (keys: pgdata, port, running, logfile [unless it
+#          has a custom one], configdir, owneruid, ownergid, socketdir)
 sub cluster_info {
     error 'cluster_info must be called with <version> <cluster> arguments' unless $_[0] && $_[1];
 
     my %result;
     $result{'configdir'} = "$confroot/$_[0]/$_[1]";
-    $result{'pgdata'} = cluster_data_directory $_[0], $_[1];
     my %postgresql_conf = read_cluster_conf_file $_[0], $_[1], 'postgresql.conf';
+    $result{'pgdata'} = cluster_data_directory $_[0], $_[1], \%postgresql_conf;
     $result{'port'} = $postgresql_conf{'port'} || $defaultport;
     $result{'socketdir'} = get_cluster_socketdir  $_[0], $_[1];
     $result{'running'} = cluster_port_running ($_[0], $_[1], $result{'port'});
@@ -416,25 +425,16 @@ sub cluster_info {
     }
     $result{'start'} = get_cluster_start_conf $_[0], $_[1];
 
-    # log file
-    if (exists $postgresql_conf{'log_filename'} || 
+    # default log file (only if not expliticly configured in postgresql.conf)
+    unless (exists $postgresql_conf{'log_filename'} || 
 	exists $postgresql_conf{'log_directory'}) {
-	my $dir;
-	if ( exists $postgresql_conf{'log_directory'} && (substr $postgresql_conf{'log_directory'}, 0, 1) eq '/') {
-	    $dir = $postgresql_conf{'log_directory'} || $result{'pgdata'};
-	} else {
-	    $dir = $result{'pgdata'} . '/' . ($postgresql_conf{'log_directory'} || '');
-	}
-
-	my $fname = $postgresql_conf{'log_filename'} || 'postgresql-%Y-%m-%d_%H%M%S.log';
-	$fname .= '.%s' if (index $fname, '%') < 0;
-	$fname = strftime $fname, localtime;
-
-	$result{'logfile'} = "$dir/$fname";
-    } else {
-	$result{'logfile'} = readlink ($result{'configdir'} . "/log");
+        my $log_symlink = $result{'configdir'} . "/log";
+        if (-l $log_symlink) {
+            ($result{'logfile'}) = readlink ($log_symlink) =~ /(.*)/; # untaint
+        } else {
+            $result{'logfile'} = "/var/log/postgresql/postgresql-$_[0]-$_[1].log";
+        }
     }
-    ($result{'logfile'}) = $result{'logfile'} =~ /(.*)/; # untaint
 
     # autovacuum settings
 
@@ -455,7 +455,8 @@ sub cluster_info {
             $result{'avac_enable'} = 0;
         }
     } else {
-        $result{'avac_enable'} = config_bool $postgresql_conf{'autovacuum'};
+        # autovacuum defaults to on since 8.3
+        $result{'avac_enable'} = config_bool $postgresql_conf{'autovacuum'} || ($_[0] ge '8.3');
     }
     
     return %result;
@@ -496,7 +497,7 @@ sub get_version_clusters {
 	my $entry;
         while (defined ($entry = readdir D)) {
 	    ($entry) = $entry =~ /^(.*)$/; # untaint
-            if (-l $vdir.$entry.'/pgdata' && -r $vdir.$entry.'/postgresql.conf') {
+            if (-r $vdir.$entry.'/postgresql.conf') {
                 push @clusters, $entry;
             }
         }

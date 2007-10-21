@@ -9,7 +9,8 @@ use TestLib;
 use lib '/usr/share/postgresql-common';
 use PgCommon;
 
-use Test::More tests => 70 * ($#MAJORS+1);
+use Test::More tests => 94 * ($#MAJORS+1);
+
 
 sub check_major {
     my $v = $_[0];
@@ -75,11 +76,57 @@ sub check_major {
     like_program_out 'postgres', 'psql --version', 0, qr/^psql \(PostgreSQL\) $v/,
         'pg_wrapper selects version number of cluster';
 
+    my $default_log = "/var/log/postgresql/postgresql-$v-main.log";
+
     # verify that the cluster is displayed
     my $ls = `pg_lsclusters -h`;
     $ls =~ s/\s*$//;
-    is $ls, "$v     main      5432 online postgres /var/lib/postgresql/$v/main       /var/log/postgresql/postgresql-$v-main.log",
+    is $ls, "$v     main      5432 online postgres /var/lib/postgresql/$v/main       $default_log",
 	'pg_lscluster reports online cluster on port 5432';
+
+    # verify that the log file is actually used
+    ok !-z $default_log, 'log file is actually used';
+
+    # check default log file configuration; when not specifying -l with
+    # pg_createcluster, we should not have a 'log' symlink
+    ok !-e "/etc/postgresql/$v/main/log", 'no log symlink by default';
+    ok !-z $default_log, "$default_log is the default log if log symlink is missing";
+    like_program_out 'postgres', 'pg_lsclusters -h', 0, qr/^$v\s+main.*$default_log\n$/;
+ 
+    # verify that log symlink works
+    is ((exec_as 'root', "pg_ctlcluster $v main stop"), 0, 'stopping cluster');
+    open L, ">$default_log"; close L; # empty default log file
+    my $p = (PgCommon::cluster_data_directory $v, 'main') . '/mylog';
+    symlink $p, "/etc/postgresql/$v/main/log";
+    is ((exec_as 'root', "pg_ctlcluster $v main start"), 0, 
+        'restarting cluster with nondefault log symlink');
+    ok !-z $p, "log target is used as log file";
+    ok -z $default_log, "default log is not used";
+    like_program_out 'postgres', 'pg_lsclusters -h', 0, qr/^$v\s+main.*$p\n$/;
+    is ((exec_as 'root', "pg_ctlcluster $v main stop"), 0, 'stopping cluster');
+    open L, ">$p"; close L; # empty log file
+
+    # verify that explicitly configured log file trumps log symlink
+    if ($v ge '8.0') {
+        PgCommon::set_conf_value ($v, 'main', 'postgresql.conf', 
+            ($v ge '8.3' ? 'logging_collector' : 'redirect_stderr'), 'on');
+        PgCommon::set_conf_value $v, 'main', 'postgresql.conf', 'log_filename', "$v#main.log";
+        is ((exec_as 'root', "pg_ctlcluster $v main start"), 0, 
+            'restarting cluster with explicitly configured log file');
+        ok -z $default_log, "default log is not used";
+        ok -z $p, "log symlink target is not used";
+        my @l = glob ((PgCommon::cluster_data_directory $v, 'main') .  "/pg_log/$v#main.log*");
+        is $#l, 0, 'exactly one log file';
+        ok (-e $l[0] && ! -z $l[0], 'custom log is actually used');
+        like_program_out 'postgres', 'pg_lsclusters -h', 0, qr/^$v\s+main.*custom\n$/;
+    } else {
+        is ((exec_as 'root', "pg_ctlcluster $v main start"), 0, 'restarting < 8.0 cluster');
+        like_program_out 'postgres', 'pg_lsclusters -h', 0, qr/^$v\s+main.*$p\n$/;
+        pass 'Skipping postgresql.conf configured log file tests for versions before 8.0';
+        pass '...';
+        pass '...';
+        pass '...';
+    }
 
     # verify that the postmaster does not have an associated terminal
     unlike_program_out 0, 'ps -o tty -U postgres h', 0, qr/tty|pts/,
@@ -163,16 +210,40 @@ Bob|1
         'pg_maintenance --force always handles cluster';
 
     # fake rotated logs to check that they are cleaned up properly
-    open L, ">/var/log/postgresql/postgresql-$v-main.log.1" or
-        die "could not open fake rotated log file";
+    open L, ">$default_log.1" or die "could not open fake rotated log file";
     print L "old log .1\n";
     close L;
-    open L, ">/var/log/postgresql/postgresql-$v-main.log.2" or
-        die "could not open fake rotated log file";
+    open L, ">$default_log.2" or die "could not open fake rotated log file";
     print L "old log .2\n";
     close L;
-    if (system "gzip -9 /var/log/postgresql/postgresql-$v-main.log.2") {
+    if (system "gzip -9 $default_log.2") {
         die "could not gzip fake rotated log";
+    }
+
+    # Check that old-style pgdata symbolic link still works (p-common 0.90+
+    # does not create them any more for >= 8.0 clusters, but they still need to
+    # work for existing installations)
+    if ($v ge '8.0') {
+        is ((exec_as 'root', "pg_ctlcluster $v main stop"), 0, 'stopping cluster');
+        my $datadir = PgCommon::get_conf_value $v, 'main', 'postgresql.conf', 'data_directory';
+        symlink $datadir, "/etc/postgresql/$v/main/pgdata";
+
+        # data_directory should trump the pgdata symlink
+        PgCommon::set_conf_value $v, 'main', 'postgresql.conf', 'data_directory', '/nonexisting';
+        like_program_out 0, "pg_ctlcluster $v main start", 1, 
+            qr/could not open file.*\/nonexisting/,
+            'cluster fails to start with invalid data_directory and valid pgdata symlink';
+
+        # if only pgdata symlink is present, it is authoritative
+        PgCommon::disable_conf_value $v, 'main', 'postgresql.conf', 'data_directory', 'disabled for test';
+        is_program_out 0, "pg_ctlcluster $v main start", 0, '',
+            'cluster restarts with pgdata symlink';
+    } else {
+        pass 'Skipping pgdata symlink compatibility test for versions before 8.0';
+        pass '...';
+        pass '...';
+        pass '...';
+        pass '...';
     }
 
     # Drop database and user again.

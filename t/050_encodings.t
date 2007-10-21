@@ -8,7 +8,7 @@ use TestLib;
 use lib '/usr/share/postgresql-common';
 use PgCommon;
 
-use Test::More tests => ($#MAJORS+1) * 87 + 10;
+use Test::More tests => ($#MAJORS+1) * 59 + 10;
 
 # create a test cluster with given locale, check the locale/encoding, and
 # remove it
@@ -101,7 +101,6 @@ sub check_cluster {
 
 foreach my $v (@MAJORS) {
     check_cluster $v, 'ru_RU';
-    check_cluster $v, 'ru_RU', 'UTF-8';
     check_cluster $v, 'ru_RU.UTF-8';
 
     # check LC_* over LANG domination
