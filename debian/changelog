@@ -1,3 +1,36 @@
+postgresql-common (87) unstable; urgency=medium
+
+  * Urgency medium since #472930 is an important bug fix.
+  * debian/init.d-functions: If there are no clusters, exit with 4 (LSB-code
+    for "unknown status") instead of 0 (which means "service is running", but
+    it is debatable and confusing whether all clusters are running if there
+    are none at all). (LP: #203966)
+  * Update Spanish debconf translations, thanks Javier Fernández-Sanguino
+    Peña. (Closes: #473405)
+  * t/060_obsolete_confparams.t: Run upgrades under
+    default_transaction_read_only=on. t/040_upgrade.t still uses the default
+    "off", so both cases get tested. This replicates the problem report from
+    Karsten Hilbert.
+  * pg_upgradecluster: Work with default_transaction_read_only=on.
+  * debian/autovacuum.conf, architecture.html: Point out that this file is
+    only relevant for PostgreSQL versions earlier than 8.1. Thanks to Ross
+    Boylan for pointing this out.
+  * Add t/051_inconsistent_encoding_upgrade.t: Check that upgrades from
+    pre-8.3 to 8.3 succeed and have correct encodings if the old DB had a
+    database whose encoding did not match the server locale. This reproduces
+    #472930.
+  * pg_upgradecluster: Fix handling of database encodings on upgrade, since
+    8.3 now forces DB encodings and server locale to match:
+    - With C locale, keep encoding of DBs on upgrade, just as in previous
+      versions. (C is compatible with all encodings, and causes lots of string
+      functions not to work correctly, but people still use it deliberately.)
+    - With other  locales, create the target DB manually with a compatible
+      encoding, and call pg_restore in a way to not create the target DB and
+      automatically convert encoding.
+    - Closes: #472930, LP: #207779
+
+ -- Martin Pitt <mpitt@debian.org>  Mon, 31 Mar 2008 11:32:39 +0200
+
 postgresql-common (86) unstable; urgency=low
 
   * Update Japanese debconf translations, thanks Hideki Yamane!
