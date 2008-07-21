@@ -86,14 +86,17 @@ sub read_conf_file {
         while (<F>) {
             if (/^\s*(?:#.*)?$/) {
                 next;
-            } elsif (/^\s*([a-zA-Z0-9_.-]+)\s*=\s*'([^']*)'\s*(?:#.*)?$/) {
+            } elsif (/^\s*([a-zA-Z0-9_.-]+)\s*=\s*'((?:[^']|(?:(?<=\\)'))*)'\s*(?:#.*)?$/) {
                 # string value
-                $conf{$1} = $2 
+                my $k = $1;
+                my $v = $2;
+                $v =~ s/\\(.)/$1/g;
+                $conf{$k} = $v;
             } elsif (/^\s*([a-zA-Z0-9_.-]+)\s*=\s*(-?[\w.]+)\s*(?:#.*)?$/) {
                 # simple value
                 $conf{$1} = $2;
             } else {
-                error "Invalid line $. in $_[0]";
+                error "Invalid line $. in $_[0]: »$_«";
             }
         }
         close F;
@@ -645,22 +648,10 @@ sub install_file {
 # Arguments: <user id> <group id>
 sub change_ugid {
     my ($uid, $gid) = @_;
-    my $groups = $gid;
-    $groups .= " $groups"; # first additional group
 
-    # collect all auxiliary groups the user is in
-    setgrent;
-    for(;;) {
-	my ($name, undef, $gid, $members) = getgrent;
-	last unless defined $gid;
-	for my $m (split /\s/, $members) {
-	    my $u = getpwnam $m;
-	    if (defined $u && $u == $uid) {
-		$groups .= " $gid";
-	    }
-	}
-    }
-    endgrent;
+    # auxiliary groups
+    my $uname = (getpwuid $uid)[0];
+    my $groups = "$gid " . `/usr/bin/id -G $uname`;
 
     $) = $groups;
     $( = $gid;

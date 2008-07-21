@@ -1,3 +1,32 @@
+postgresql-common (90) unstable; urgency=low
+
+  * Update Swedish debconf translations, thanks Martin Bagge!
+    (Closes: #490677)
+  * Add Turkish debconf translations, thanks Mert Dirik!
+    (Closes: #491007)
+  * Update Vietnamese debconf translations, thanks Clytie Siddall!
+    (Closes: #491048)
+  * Update Russian debconf translations, thanks Sergey Alyoshin!
+    (Closes: #491420)
+  * PgCommon.pm, change_ugid(): Use /usr/bin/id instead of manual parsing with
+    getgrent(), which is reportedly magnitudes faster for environments with
+    a large number of groups in remote databases. Thanks to Rodrigo Gallardo!
+    (Closes: #491136)
+  * debian/postgresql-common.postinst: Update root.crt header comment for
+    PostgreSQL 8.3. (Closes: #491276)
+  * pg_ctlcluster: Fix typo in pg_ctl error messages. Thanks to Aaron Schrab!
+    (Closes: #488280)
+  * pg_createcluster, pg_ctlcluster: Set the log file group to "adm" if
+    the cluster is owned by a system user (like "postgres"). In the "owned by
+    human user" case, keep it as that user's primary group. Check both cases in
+    the test suite. (Closes: #483017)
+  * t/TestLib.pm: Return "1" at the end, to avoid "TestLib.pm did not return a
+    true value" error on import.
+  * PgCommon.pm, read_conf_file(): Fix parsing of escaped quotes in string
+    values. Add tests to t/005_PgCommon.t. (Closes: #481055)
+
+ -- Martin Pitt <mpitt@debian.org>  Mon, 21 Jul 2008 12:01:08 +0200
+
 postgresql-common (89) unstable; urgency=low
 
   * Update Italian debconf translations, thanks Luca Monducci!
