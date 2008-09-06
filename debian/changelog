@@ -1,3 +1,13 @@
+postgresql-common (91) unstable; urgency=low
+
+  * Update Brazilian Portugese debconf translations, thanks Eder L. Marques!
+    (Closes: #493031)
+  * Add Romanian debconf translations, thanks Igor Stirbu!
+    (Closes: #491823)
+  * debian/control: Bump Standards-Version (no changes necessary).
+
+ -- Martin Pitt <mpitt@debian.org>  Sat, 06 Sep 2008 10:44:15 +0200
+
 postgresql-common (90) unstable; urgency=low
 
   * Update Swedish debconf translations, thanks Martin Bagge!
