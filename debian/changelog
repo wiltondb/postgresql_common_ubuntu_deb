@@ -1,3 +1,38 @@
+postgresql-common (93) unstable; urgency=low
+
+  * t/060_obsolete_confparams.t: Test a direct upgrade from oldest to newest
+    version in addition to consecutive version-by-version upgrades. This
+    checks that parameters which changed several times between the versions
+    are correctly converted. Reproduces #502106.
+  * pg_upgradecluster: Re-read configuration file after doing the "syslog" ->
+    "redirect_stderr" migration, so that the followup "redirect_stderr" ->
+    "logging_collector" rename will actually be done. This fixes a direct 7.4
+    -> 8.3 upgrade. (Closes: #502106)
+
+ -- Martin Pitt <mpitt@debian.org>  Sun, 16 Nov 2008 19:45:34 +0100
+
+postgresql-common (92) unstable; urgency=low
+
+  * debian/supported-versions: Add Ubuntu 8.10 and 9.04.
+  * pg_upgradecluster: Clarify POD about manual mode of the old cluster.
+    Thanks to Toni Mueller for noticing.
+  * Demote ssl-cert Depends: to Recommends:. (Closes: #498406)
+  * pg_upgradecluster: Provide --locale and -lc-* options similar to
+    pg_createcluster, to provide easy UTF-8 migration from previous
+    legacy-encoded clusters. (Closes: #505785)
+  * t/052_upgrade_encodings.t: Test cases for pg_upgradecluster default and
+    explicit encoding behaviour.
+  * debian/init.d-functions: Use --force for forcefully stopping a running
+    cluster for "restart" init.d operation as well. Otherwise restart is not
+    guaranteed to succeed and could hang on existing connections.
+    (Closes: #481359)
+  * t/052_upgrade_encodings.t: Test upgrading of an SQL_ASCII database in a
+    cluter running under a proper locale. This reproduces #505449.
+  * pg_upgradecluster: Preserve SQL_ASCII encoded databases on upgrade.
+    (Closes: #505449)
+
+ -- Martin Pitt <mpitt@debian.org>  Sun, 16 Nov 2008 13:42:31 +0100
+
 postgresql-common (91) unstable; urgency=low
 
   * Update Brazilian Portugese debconf translations, thanks Eder L. Marques!
