@@ -1,3 +1,42 @@
+postgresql-common (96) unstable; urgency=low
+
+  * debian/supported-versions: Add "Debian 5.0" aka Lenny.
+    (Closes: #509144)
+  * debian/README.Debian: Document port handling, and point to
+    relevant manpages and tools. (Closes: #508977)
+  * debian/README.Debian: Fix "confident" typo. (Closes: #512648)
+  * Drop pg_autovacuum handling, which was only necessary for 7.4 (8.0
+    and above have internal autovacuuming). This was kept for Lenny to
+    allow Etch backports. This also gets rid of pg_maintenance and
+    /etc/cron.d/postgresql-common. (Closes: #425914, #481025)
+  * Add debian/postgresql-common.preinst: Remove obsolete conffiles
+    (cronjob and /etc/postgresql-common/autovacuum.conf) on upgrade.
+  * Drop support for pre-8.1 clusters, together with all hacks and
+    workarounds for those. Add Conflicts: to postgresql-{7.4,8.0}, to
+    ensure that this version isn't used with ancient servers any more.
+  * t/030_errors.t: Check that clusters on the same port can run side
+    by side if they are using different Unix socket directories and
+    different TCP addresses. This reproduces #514132.
+  * pg_ctlcluster: Replace overly harsh port conflict check (which
+    broke clusters on the same port, but different Unix/TCP
+    namespaces) with a more modest one which just checks conflict on
+    the same Unix socket directory. Thanks to Bernd Helmle for the
+    patch! (Closes: #514132, #472627)
+  * debian/postgresql-common.postinst: Do not call pg_updatedicts with
+    full path (DP 6.1).
+  * pg_lsclusters, pg_upgradecluster: Fix forgotten "=back" after
+    itemize list in the POD. Thanks lintian.
+  * debian/compat, debian/control: Bump compat level to 6.
+  * pg_updatedicts: Ensure generated tsearch dictionaries are world
+    readable when being generated under umask 077.
+  * debian/README.Debian: Point out incompatibility between using the
+    upstream tools (initdb) and the Debian tools (pg_createcluster)
+    and give some recommendations. (LP: #138793)
+  * debian/maintscripts-functions: Unset $GREP_OPTIONS. Thanks to
+    Carlo Calderoni for noticing!
+
+ -- Martin Pitt <mpitt@debian.org>  Sun, 15 Feb 2009 17:37:58 +0100
+
 postgresql-common (95) experimental; urgency=low
 
   * Add automatic building of PostgreSQL tsearch/stem dictionaries:
