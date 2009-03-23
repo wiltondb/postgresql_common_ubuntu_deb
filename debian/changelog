@@ -1,3 +1,32 @@
+postgresql-common (97) unstable; urgency=low
+
+  * t/030_errors.t: Fix "no space left on device" test for non-English
+    locales.
+  * Add cleanpg: Script to remove all PostgreSQL related processes and files.
+    This isn't shipped in the package, just kept in the source as a developer
+    tool.
+  * debian/control: Update section to "database".
+  * debian/control: Bump Standards-Version to 3.8.1 (no changes required).
+  * t/TestLib.pm, deb_installed(): Properly close the dpkg file descriptor.
+    Thanks to Cyril Bouthors for pointing this out!
+  * t/001_packages.t: Check that postgres user is in the ssl-cert group.
+    Thanks to Cyril Bouthors for the patch!
+  * Added support for passing additional options to pg_ctl through a new
+    configuration file pg_ctl.conf, or as additional CLI arguments to
+    pg_ctlcluster. Add tests in t/085_pg_ctl.conf.t. Thanks to Cyril Bouthors
+    <cyril@bouthors.org> for the patch! (Closes: #492843)
+  * t/070_non_postgres_clusters.t: Update number of tests for new pg_ctl.conf
+    file.
+  * t/090_multicluster.t: Check that explicit port specification with
+    -p/--port/$PGPORT selects the right cluster in the case of multiple
+    existing clusters where none runs on the default port. This reproduces
+    #517527.
+  * pg_wrapper: Default to latest version if -p, --port, or $PGPORT is
+    specified, multiple clusters are available, and none is running on the
+    default port 5432. (Closes: #517527)
+
+ -- Martin Pitt <mpitt@debian.org>  Mon, 23 Mar 2009 07:41:50 +0100
+
 postgresql-common (96) unstable; urgency=low
 
   * debian/supported-versions: Add "Debian 5.0" aka Lenny.
