@@ -1,3 +1,16 @@
+postgresql-common (102) unstable; urgency=low
+
+  * debian/postgresql-common.postinst: Create /var/log/postgresql/ if it does
+    not exist, before trying to chown/chmod it.
+  * t/001_packages.t: Check that -server-dev-* is installed (for
+    t/140_pg_config.t)
+  * t/001_packages.t: Check that the system default locale is an UTF-8 one.
+  * debian/supported-versions: Add Ubuntu 10.04.
+  * t/050_encodings.t: Disable Russian error message encoding test for now,
+    since Russian translations were dropped upstream (too incomplete).
+
+ -- Martin Pitt <mpitt@debian.org>  Mon, 14 Dec 2009 19:05:19 +0100
+
 postgresql-common (101) unstable; urgency=low
 
   * debian/supported-versions: Only support 8.4 in Ubuntu 9.10. (LP: #403381)
