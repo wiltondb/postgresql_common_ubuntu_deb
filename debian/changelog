@@ -1,3 +1,41 @@
+postgresql-common (103) unstable; urgency=low
+
+  * Move the lsb-release dependency of p-common to a recommends of
+    p-client-common. (Closes: #562642)
+  * Drop Oliver from Uploaders:, he has not been active any more for years.
+  * t/005_PgCommon.t: Add '.' to library search path, so that this prefers
+    testing PgCommon.pm from the source tree.
+  * t/005_PgCommon.t: Add test cases for {set,disable,replace}_conf_value().
+  * PgCommon.pm, replace_conf_value(): Do not append the new parameter if the
+    old is not found.
+  * PgCommon.pm, {set,disable,replace}_conf_value(): Intercept errors on
+    writing data (which could happen when running out of disk space). Write
+    into a new file and rename it in the end, instead of directly writing into
+    the original file. Thanks to Yann Dirson for the original patch.
+    (Closes: #549206)
+  * pg_createcluster: Change effective gid as well when setting the socket
+    directory, to avoid moving postgresql.conf's group to root (which would
+    happen with the previous change).
+  * Add t/042_upgrade_tablespaces.t: Test upgrading a cluster with
+    tablespaces. Since this is not currently supported (and hard to do in an
+    automated fashion due to the nature of tablespaces), just check that this
+    errors out with a sane message and does not do any damage.
+  * pg_upgradecluster: Add an early check for tablespaces. (Closes: #523574)
+  * pg_lsclusters: Fix undefined value if owneruid cannot be determined (which
+    can happen in special setups). Thanks to Daniel Pittman! (Closes: #541434)
+  * t/020_create_sql_remove.t: Verify permissions of the data and
+    configuration directories.
+  * pg_createcluster: Make /etc/postgresql/<version> and
+    /var/lib/postgresql/<version> owned by 'postgres', so that they can be
+    administrated with 'postgres' privileges. Update t/030_errors.t
+    accordingly. (LP: #236704, Closes: #525294)
+  * t/020_create_sql_remove.t: Check that a missing log file is recreated by
+    pg_ctlcluster (if it has enough permissions).
+  * pg_ctlcluster: Make re-creation of log file actually work. (LP: #391119,
+    #372476)
+
+ -- Martin Pitt <mpitt@debian.org>  Wed, 30 Dec 2009 23:06:10 +0100
+
 postgresql-common (102) unstable; urgency=low
 
   * debian/postgresql-common.postinst: Create /var/log/postgresql/ if it does

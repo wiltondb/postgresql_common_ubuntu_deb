@@ -9,7 +9,7 @@ use TestLib;
 use lib '/usr/share/postgresql-common';
 use PgCommon;
 
-use Test::More tests => 92 * ($#MAJORS+1);
+use Test::More tests => 100 * ($#MAJORS+1);
 
 
 sub check_major {
@@ -71,10 +71,23 @@ sub check_major {
     # verify that the log file is actually used
     ok !-z $default_log, 'log file is actually used';
 
-    # verify log file properties
+    # verify configuration file permissions
+    my $postgres_uid = (getpwnam 'postgres')[2];
+    my @st = stat "/etc/postgresql/$v";
+    is $st[4], $postgres_uid, 'version configuration directory file is owned by user "postgres"';
+    my @st = stat "/etc/postgresql/$v/main";
+    is $st[4], $postgres_uid, 'configuration directory file is owned by user "postgres"';
+
+    # verify data file permissions
+    my @st = stat "/var/lib/postgresql/$v";
+    is $st[4], $postgres_uid, 'version data directory file is owned by user "postgres"';
+    my @st = stat "/var/lib/postgresql/$v/main";
+    is $st[4], $postgres_uid, 'data directory file is owned by user "postgres"';
+
+    # verify log file permissions
     my @logstat = stat $default_log;
     is $logstat[2], 0100640, 'log file has 0640 permissions';
-    is $logstat[4], (getpwnam 'postgres')[2], 'log file is owned by user"postgres"';
+    is $logstat[4], $postgres_uid, 'log file is owned by user "postgres"';
     is $logstat[5], (getgrnam 'adm')[2], 'log file is owned by group "adm"';
 
     # check default log file configuration; when not specifying -l with
@@ -108,6 +121,10 @@ sub check_major {
     is $#l, 0, 'exactly one log file';
     ok (-e $l[0] && ! -z $l[0], 'custom log is actually used');
     like_program_out 'postgres', 'pg_lsclusters -h', 0, qr/^$v\s+main.*custom\n$/;
+
+    # clean up
+    PgCommon::disable_conf_value $v, 'main', 'postgresql.conf', 'log_filename', '';
+    unlink "/etc/postgresql/$v/main/log";
 
     # verify that the postmaster does not have an associated terminal
     unlike_program_out 0, 'ps -o tty -U postgres h', 0, qr/tty|pts/,
@@ -203,6 +220,13 @@ Bob|1
     sleep 1;
     is ((exec_as 'nobody', 'dropdb nobodydb', $outref, 0), 0, 'dropdb nobodydb', );
     is ((exec_as 'postgres', 'dropuser nobody', $outref, 0), 0, 'dropuser nobody');
+
+    # log file gets re-created by pg_ctlcluster
+    is ((exec_as 'postgres', "pg_ctlcluster $v main stop"), 0, 'stopping cluster');
+    unlink $default_log;
+    is ((exec_as 'postgres', "pg_ctlcluster $v main start"), 1, 'starting cluster as postgres fails without a log file');
+    is ((exec_as 0, "pg_ctlcluster $v main start"), 0, 'starting cluster as root work without a log file');
+    ok (-e $default_log && ! -z $default_log, 'log file got recreated and used');
 
     # stop server, clean up, check for leftovers
     ok ((system "pg_dropcluster $v main --stop") == 0, 
