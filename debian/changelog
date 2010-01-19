@@ -1,3 +1,19 @@
+postgresql-common (104) unstable; urgency=low
+
+  * pg_updatedicts: Process dictionaries from /usr/share/hunspell, too.
+  * debian/control: Add Vcs-* fields.
+  * Add standard license headers to all programs, and update copyright.
+  * debian/copyright: Update to DEP-5 (Machine-readable debian/copyright), and
+    drop Oliver's copyright, since there is nothing left that was written by
+    him.
+  * pg_updatedicts: Do not create system_<locale>.{affix,dict} symlinks any
+    more, but use the actual names that upstream PostgreSQL looks for (without
+    system_ prefix). This allows us to drop the system_ lookup patch from
+    PostgreSQL. Update t/150_tsearch_stemming.t accordingly and remove the old
+    system_* symlinks on upgrade in debian/postgresql-common.postinst.
+
+ -- Martin Pitt <mpitt@debian.org>  Tue, 19 Jan 2010 23:16:21 +0100
+
 postgresql-common (103) unstable; urgency=low
 
   * Move the lsb-release dependency of p-common to a recommends of
