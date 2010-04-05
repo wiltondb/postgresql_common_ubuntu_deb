@@ -1,3 +1,30 @@
+postgresql-common (106) unstable; urgency=low
+
+  * t/001_packages.t: Check for ".utf8" locale instead of ".UTF-8". This
+    seems to be the new canonical spelling now.
+  * t/TestLib.pm, check_clean(): Require that /var/log/postgresql/ still
+    exists. If we remove it entirely, current versions of logcheck complain
+    loudly. This was already fixed a while ago in squeeze, this will ensure it
+    stays so. (Closes: #576180)
+  * t/040_upgrade.t: Check upgrade of database and table ACL, an ALTER
+    DATABASE option, and correct upgrading of a custom pg_hba.conf. This
+    reproduces #543506.
+  * pg_upgradecluster: Rework logic to use "pg_dumpall -s" instead of
+    "pg_dumpall -g", to also catch ACLs, global settings, and the like. Drop
+    manual database creation and encoding special-cases, since those are being
+    taken care of by the -s commands already. (Closes: #543506, #562676)
+  * pg_upgradecluster: Re-enable connections after the upgrade is done, not in
+    between.
+  * t/120_pg_upgradecluster_scripts.t: Upgrade scripts should not create
+    tables in the "init" phase, since they will be overwritten during
+    dump/restore. Change the test case to move table changes into the "finish"
+    phase, and update documentation in pg_upgradecluster to point out this
+    potential problem.
+  * debian/init.d-functions, status(): More appropriate output formatting for
+    "status" init script commands. (Closes: #522679)
+
+ -- Martin Pitt <mpitt@debian.org>  Mon, 05 Apr 2010 17:58:25 +0200
+
 postgresql-common (105) unstable; urgency=low
 
   * debian/postgresql-common.postinst: Fix upgrade failure if no tsearch
