@@ -9,7 +9,7 @@ use TestLib;
 use lib '/usr/share/postgresql-common';
 use PgCommon;
 
-use Test::More tests => 100 * ($#MAJORS+1);
+use Test::More tests => 99 * ($#MAJORS+1);
 
 
 sub check_major {
@@ -28,7 +28,7 @@ sub check_major {
     is $#pm_pids, 0, 'Exactly one postmaster process running';
 
     # check environment
-    my %safe_env = qw/LC_ALL 1 LC_CTYPE 1 LANG 1 PWD 1 PGLOCALEDIR 1 PGSYSCONFDIR 1 SHLVL 1 PGDATA 1 _ 1/;
+    my %safe_env = qw/LC_ALL 1 LC_CTYPE 1 LANG 1 PWD 1 PGLOCALEDIR 1 PGSYSCONFDIR 1 PG_GRANDPARENT_PID 1 SHLVL 1 PGDATA 1 _ 1/;
     my %env = pid_env $pm_pids[0];
     foreach (keys %env) {
         fail "postmaster has unsafe environment variable $_" unless exists $safe_env{$_};
@@ -224,8 +224,7 @@ Bob|1
     # log file gets re-created by pg_ctlcluster
     is ((exec_as 'postgres', "pg_ctlcluster $v main stop"), 0, 'stopping cluster');
     unlink $default_log;
-    is ((exec_as 'postgres', "pg_ctlcluster $v main start"), 1, 'starting cluster as postgres fails without a log file');
-    is ((exec_as 0, "pg_ctlcluster $v main start"), 0, 'starting cluster as root work without a log file');
+    is ((exec_as 'postgres', "pg_ctlcluster $v main start"), 0, 'starting cluster as postgres works without a log file');
     ok (-e $default_log && ! -z $default_log, 'log file got recreated and used');
 
     # stop server, clean up, check for leftovers

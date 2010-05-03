@@ -1,3 +1,50 @@
+postgresql-common (107) unstable; urgency=low
+
+  [ Peter Eisentraut ]
+  * Add initial support for 9.0 (pre-release snapshots for now):
+    - cleanpg: Remove 9.0 clusters.
+    - pg_createcluster: Clone configure_8_4() as configure_9_0().
+    - pg_upgradecluster: Migrate obsolete/changed configuration parameters.
+  * pg_wrapper: Fix spelling.
+  * In maintainer scripts, instead of "#!/bin/sh -e" use a separate "set -e",
+    per lintian.
+  * debian/control: Bump Standards-Version to 3.8.4; no changes necessary.
+
+  [ Martin Pitt ]
+  * cleanpg: Do not remove the /var/log/postgresql/ directory itself, only its
+    contents, to avoid logcheck falling over.
+  * t/020_create_sql_remove.t: Do not consider $PG_GRANDPARENT_PID an unsafe
+    environment, it's set by 9.0 servers.
+  * t/060_obsolete_confparams.t: Add a full configuration for 8.4, so that
+    upgrades to 9.0 can be tested.
+  * t/052_upgrade_encodings.t: Specify 'C' locale when creating the ASCII
+    encoded test database for versions >= 8.4, otherwise we have a
+    locale/encoding mismatch.
+  * t/TestLib.pm: Abort tests on FAILURE=shell and the shell exits with
+    nonzero. This avoids endless followup error shells once it's clear that
+    the following ones are doomed anyway.
+  * PgCommon.pm: Add new function get_db_locales() which reads lc_ctype and
+    lc_locales for a particular database. This replaces the
+    get_cluster_locales() function for >= 8.4 server versions (which moved
+    from global to per-database locales).
+  * pg_upgradecluster: Use get_db_locales() instead of get_cluster_locales()
+    for upgrades from >= 8.4.
+  * pg_ctlcluster: Drop check for valid locales. We can only determine them
+    (using pg_controldata through get_cluster_locales()) for <= 8.3 clusters,
+    which are obsolete in sid/lenny. For >= 8.4 clusters, we need to start the
+    server to find out the locales, at which point the check is pointless.
+  * pg_upgradecluster: Run pg_restore with --disable-triggers when running in
+    --data-only mode. (Closes: #579768)
+  * t/020_create_sql_remove.t: We now assume that /var/log/postgresql/ always
+    exists, and is writable by the "postgres" user. Thus if we delete the log,
+    running "pg_ctlcluster start" should be able to recreate it. This fixes
+    the 020_create_sql_remove.t test failure in "umask 077" mode, and uncovers
+    some more inconsistencies wrt. log directory permissions.
+  * pg_createcluster, testsuite: Fix permissions of /var/log/postgresql/ if
+    this script creates it.
+
+ -- Martin Pitt <mpitt@debian.org>  Mon, 03 May 2010 17:40:09 +0200
+
 postgresql-common (106) unstable; urgency=low
 
   * t/001_packages.t: Check for ".utf8" locale instead of ".UTF-8". This
