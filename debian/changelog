@@ -1,3 +1,25 @@
+postgresql-common (110) unstable; urgency=low
+
+  [ Martin Pitt ]
+  * t/080_start.conf.t: Update for common init.d script.
+  * debian/rules: Drop installation of lintian overrides and let dh_lintian do
+    it for us. Adapt override file accordingly.
+  * debian/control: Drop unnecessary debconf dependency from -client-common.
+  * Bump Standards-Version to 3.9.1, no changes necessary.
+  * debian/postgresql-common.postgresql.init: Fix force-reload, thanks Pascal
+    Volk. (Closes: #591185)
+  * debian/rules: Stop man page build/clean being package dependent.
+  * pg_buildext: Remove bashishms and convert to plain /bin/sh.
+
+  [ Dimitri Fontaine ]
+  * Add new package postgresql-server-dev-all:
+    - "pb_buildext" tool for easy building of extension packages for multiple
+      server versions.
+    - pgxs_debian_control.mk debian/rules include for generating
+      debian/control.
+
+ -- Martin Pitt <mpitt@debian.org>  Sun, 01 Aug 2010 16:50:41 +0200
+
 postgresql-common (109) unstable; urgency=low
 
   * pg_lsclusters: Fix "uninitialized value" warning when a cluster's data
