@@ -43,9 +43,11 @@ lsb_debian() {
 
 # If we have lsb_release, use it
 if type lsb_release >/dev/null 2>/dev/null; then
-    DISTRO="`lsb_release -is`"
-    RELEASE="`lsb_release -rs`"
+    DISTRO="`lsb_release -is`" || DISTRO=""
+    RELEASE="`lsb_release -rs`" || RELEASE=""
+fi
     
+if [ -n "$DISTRO" -a -n "$RELEASE" ]; then
     # Ubuntu?
     case "$DISTRO" in
         Ubuntu)
@@ -63,13 +65,8 @@ if type lsb_release >/dev/null 2>/dev/null; then
             ;;
     esac
 else
-    # Debian?
-    if [ -e /etc/debian_version ]; then
-        /bin/echo -e "8.4\n9.0";
-    else
-        echo "supported_versions: WARNING: Unknown distribution" >&2
-        /bin/echo -e "$DEFAULT"
-    fi
+    echo "supported_versions: WARNING: lsb_release not present, unknown distribution" >&2
+    /bin/echo -e "$DEFAULT"
 fi
 
 exit 0
