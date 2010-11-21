@@ -1,3 +1,27 @@
+postgresql-common (112) unstable; urgency=medium
+
+  * Urgency medium since this fixes an RC bug.
+  * debian/changelog: Fix changelog entry in version 111 for #597654: init
+    script priority was fixed to S19, not S29.
+  * pg_ctlcluster: Also pass additional pg_ctl arguments in "stop" and
+    "reload" mode.
+  * pg_ctlcluster: Pass correct exit code from pg_ctl in case of errors.
+  * PgCommon.pm, get_db_encoding(): Fix uninitialized variable if psql fails.
+  * t/040_upgrade.t: Check that pg_upgradecluster exits early and gracefully
+    if the old cluster does not stop (usually because there are still active
+    connections to it). This reproduces #509050.
+  * pg_upgradecluster: Move stopping of old cluster and disabling connections
+    to it much ealier, and properly fail without starting the upgrade.
+    (Closes: #509050)
+  * debian/postgresql-common.preinst: Remove obsolete init script from
+    postgresql-8.3 for upgrades from Lenny. It provides "postgresql" which is
+    also provided by our common init script, and insserv chokes on this. Our
+    common init script handles 8.3 as well and will just take over. Note that
+    this is a policy violation, but we can't clean up in -8.3 since that does
+    not exist any more in Squeeze. (Closes: #591924)
+
+ -- Martin Pitt <mpitt@debian.org>  Sun, 21 Nov 2010 13:52:25 +0100
+
 postgresql-common (111) unstable; urgency=high
 
   * Urgency high since this fixes two RC bugs.
@@ -15,7 +39,7 @@ postgresql-common (111) unstable; urgency=high
     lsb_release is not working/existing. Derivatives have debian_version as
     well, and we don't actually evaluate it, so just print a meaningful error
     message and go with the default versions.
-  * debian/rules: Put init script priority back to S29/K21 to match the
+  * debian/rules: Put init script priority back to S19/K21 to match the
     previous postgresql-8.4 init script. Fix the priorities on upgrade in
     debian/postgresql-common.preinst. (Closes: #597654)
 
