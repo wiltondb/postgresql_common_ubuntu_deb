@@ -1,3 +1,27 @@
+postgresql-common (114) unstable; urgency=low
+
+  * debian/supported-versions: Add Ubuntu 11.04. Drop versions which are newer
+    than the ones supported in the released versions, as backports are now
+    generally accepted by our .config scripts, but having those newer versions
+    confuses pg_buildext.
+  * debian/postgresql-common.config: Silence warning from --compare-versions
+    when being called through a trigger and $2 is not a version number.
+    This works around the underlying dpkg problem. (Closes: #608522)
+  * Add debian/postgresql-common.sysctl: sysctl.d/ template for changing
+    kernel.shmmax and kernel.shmall, which is very common with PostgreSQL.
+    Install it in debian/rules. Thanks to Peter Eisentraut for the suggestion!
+    (Closes: #607946)
+  * testsuite: Take new unified init script into account when stopping
+    existing clusters. Thanks Steve Beattie! (LP: #712200)
+  * pg_wrapper: If libreadline is installed, LD_PRELOAD this for "psql", to
+    avoid using the rather broken libedit. We need to build the postgresql-X.Y
+    packages against libedit for license reasons (#603599), but as libreadline
+    has a drop-in compatible ABI, this works around the licensing
+    restrictions. Thanks to Andreas Barth for working this out! Add a
+    recommends to libreadline6. (Closes: #608442, #607907, #607109, #611918)
+
+ -- Martin Pitt <mpitt@debian.org>  Sun, 13 Feb 2011 22:28:33 +0100
+
 postgresql-common (113) unstable; urgency=medium
 
   * Urgency medium, as this is a straightforward bug fix for an important
