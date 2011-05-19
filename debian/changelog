@@ -1,3 +1,21 @@
+postgresql-common (116) unstable; urgency=low
+
+  * debian/supported-versions: Move Debian testing/unstable and Ubuntu 11.10
+    to 9.0.
+  * pg_upgradecluster: Revert to the previous encode()/decode() wrapping in
+    the "probin" fixup for cluster upgrades from versions < 9.0. Earlier
+    versions' replace() function indeed does work on bytea types, not strings,
+    so this broke upgrades to 8.4. (Closes: #627227)
+  * pg_upgradecluster: Drop all unversioned configuration option transitions,
+    which were still from the 7.4 → 8.0 days. These are obsolete, and
+    versions >= 96 only support clusters >= 8.1 anyway. In some cases they
+    actively break stuff, like inadvertently setting log_statement=all.
+    (Closes: #617493)
+  * t/060_obsolete_confparams.t: Fix remaining "{,log_}timezone=unknown"
+    example configuration files, to also fix upgrade tests for 8.4 → 9.1.
+
+ -- Martin Pitt <mpitt@debian.org>  Thu, 19 May 2011 11:30:16 +0200
+
 postgresql-common (115) unstable; urgency=low
 
   * Add Danish debconf translations, thanks Joe Dalton. (Closes: #619057)
