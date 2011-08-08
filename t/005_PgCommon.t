@@ -100,17 +100,20 @@ open F, ">$c" or die "Could not create $c: $!";
 print F <<EOF;
 # test configuration file
 
-# commented_int = 12
-# commented_str = 'foobar'
+# Commented_Int = 12
+# commented_str='foobar'
 
-intval = 42
-cintval = 1 # blabla
-strval = 'hello'
+#intval = 1
+Intval = 42
+cintval=1 # blabla
+strval 'hello'
+strval2 'world'
 cstrval = 'bye' # comment
 emptystr = ''
 cemptystr = '' # moo!
+#testpath = '/bin/bad'
 testpath = '/bin/test'
-quotestr = 'test ! -f \\'/tmp/%f\\' && echo \\'yes\\''
+QuoteStr = 'test ! -f \\'/tmp/%f\\' && echo \\'yes\\''
 EOF
 close F;
 %conf = PgCommon::read_conf_file "$c";
@@ -118,6 +121,7 @@ is_deeply (\%conf, {
       'intval' => 42, 
       'cintval' => 1, 
       'strval' => 'hello', 
+      'strval2' => 'world', 
       'cstrval' => 'bye', 
       'testpath' => '/bin/test', 
       'emptystr' => '',
@@ -130,7 +134,7 @@ open F, ">$tdir/bar.conf" or die "Could not create $tdir/bar.conf: $!";
 print F <<EOF;
 # test configuration file
 
-# commented_int = 24
+# Commented_Int = 24
 # commented_str = 'notme'
 
 intval = -1
@@ -144,6 +148,7 @@ is_deeply (\%conf, {
       'intval' => 42, 
       'cintval' => 1, 
       'strval' => 'howdy', 
+      'strval2' => 'world', 
       'cstrval' => 'bye', 
       'testpath' => '/bin/test', 
       'emptystr' => '',
@@ -157,7 +162,9 @@ PgCommon::set_conf_value '8.4', 'test', 'foo.conf', 'commented_int', '24';
 PgCommon::set_conf_value '8.4', 'test', 'foo.conf', 'commented_str', 'new foo';
 PgCommon::set_conf_value '8.4', 'test', 'foo.conf', 'intval', '39';
 PgCommon::set_conf_value '8.4', 'test', 'foo.conf', 'cintval', '5';
+PgCommon::set_conf_value '8.4', 'test', 'foo.conf', 'strval', 'Howdy';
 PgCommon::set_conf_value '8.4', 'test', 'foo.conf', 'newval', 'NEW!';
+PgCommon::set_conf_value '8.4', 'test', 'foo.conf', 'testpath', '/bin/new';
 
 open F, "$c";
 my $conf;
@@ -166,17 +173,20 @@ close F;
 is ($conf, <<EOF, 'set_conf_value');
 # test configuration file
 
-commented_int = 24
-commented_str = 'new foo'
+Commented_Int = 24
+commented_str='new foo'
 
-intval = 39
-cintval = 5 # blabla
-strval = 'hello'
+#intval = 1
+Intval = 39
+cintval=5 # blabla
+strval Howdy
+strval2 'world'
 cstrval = 'bye' # comment
 emptystr = ''
 cemptystr = '' # moo!
-testpath = '/bin/test'
-quotestr = 'test ! -f \\'/tmp/%f\\' && echo \\'yes\\''
+#testpath = '/bin/bad'
+testpath = '/bin/new'
+QuoteStr = 'test ! -f \\'/tmp/%f\\' && echo \\'yes\\''
 newval = 'NEW!'
 EOF
 
@@ -184,6 +194,7 @@ EOF
 PgCommon::disable_conf_value '8.4', 'test', 'foo.conf', 'intval', 'ints are out of fashion';
 PgCommon::disable_conf_value '8.4', 'test', 'foo.conf', 'cstrval', 'not used any more';
 PgCommon::disable_conf_value '8.4', 'test', 'foo.conf', 'nonexisting', 'NotMe';
+PgCommon::disable_conf_value '8.4', 'test', 'foo.conf', 'testpath', 'now 2 comments';
 
 open F, "$c";
 read F, $conf, 1024;
@@ -191,17 +202,20 @@ close F;
 is ($conf, <<EOF, 'disable_conf_value');
 # test configuration file
 
-commented_int = 24
-commented_str = 'new foo'
+Commented_Int = 24
+commented_str='new foo'
 
-#intval = 39 #ints are out of fashion
-cintval = 5 # blabla
-strval = 'hello'
+#intval = 1
+#Intval = 39 #ints are out of fashion
+cintval=5 # blabla
+strval Howdy
+strval2 'world'
 #cstrval = 'bye' # comment #not used any more
 emptystr = ''
 cemptystr = '' # moo!
-testpath = '/bin/test'
-quotestr = 'test ! -f \\'/tmp/%f\\' && echo \\'yes\\''
+#testpath = '/bin/bad'
+#testpath = '/bin/new' #now 2 comments
+QuoteStr = 'test ! -f \\'/tmp/%f\\' && echo \\'yes\\''
 newval = 'NEW!'
 EOF
 
@@ -217,18 +231,21 @@ close F;
 is ($conf, <<EOF, 'replace_conf_value');
 # test configuration file
 
-commented_int = 24
-commented_str = 'new foo'
+Commented_Int = 24
+commented_str='new foo'
 
-#intval = 39 #ints are out of fashion
-cintval = 5 # blabla
-#strval = 'hello' #renamedstrval
+#intval = 1
+#Intval = 39 #ints are out of fashion
+cintval=5 # blabla
+#strval Howdy #renamedstrval
 newstrval = goodbye
+strval2 'world'
 #cstrval = 'bye' # comment #not used any more
 emptystr = ''
 cemptystr = '' # moo!
-testpath = '/bin/test'
-quotestr = 'test ! -f \\'/tmp/%f\\' && echo \\'yes\\''
+#testpath = '/bin/bad'
+#testpath = '/bin/new' #now 2 comments
+QuoteStr = 'test ! -f \\'/tmp/%f\\' && echo \\'yes\\''
 newval = 'NEW!'
 EOF
 # vim: filetype=perl

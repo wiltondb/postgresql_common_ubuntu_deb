@@ -1,3 +1,39 @@
+postgresql-common (119) unstable; urgency=low
+
+  [ Martin Pitt ]
+  * PgCommon.pm, set_conf_value(): Fix the case where a key exists first as a
+    commented value, and then uncommented. Add appropriate test cases to
+    t/005_PgCommon.t. (Closes: #539651)
+  * debian/postgresql-common.postgresql.init: Fix "status" command when some
+    clusters are down. (Closes: #635594)
+  * pg_upgradecluster: Only call pg_ctl with the -t option with old clusters
+    >= 8.4, as earlier versions do not yet support it. (Closes: #633801)
+  * debian/postgresql-common.postinst: Remove some obsolete transition
+    logic.
+  * architecture.html, cleanpg, debian/init.d-functions, pg_createcluster:
+    Remove obsolete references to per-version init scripts. (Closes: #636957)
+  * debian/maintscripts-functions: Remove our tsearch data symlinks on
+    removal. (Closes: #539611)
+  * PgCommon.pm: Make {read,set,disable,replace}_conf_value() case
+    independent for *.conf files, as per upstream specification. Add
+    appropriate test cases to t/005_PgCommon.t. (Closes: #618577)
+  * PgCommon.pm: Make {read,set,disable,replace}_conf_value() accept "key
+    value" lines without '=', as this is optional as per upstream
+    specification. Add appropriate test cases to t/005_PgCommon.t. Thanks
+    to Frederic Junod for the original patch suggestion. (Closes: #618583)
+  * PgCommon.pm, cluster_info(): If postgresql.conf defines an external PID
+    file, check its existence for determining if a cluster is running, instead
+    of poking the port. This is more efficient, and also gives correct results
+    for overlapping port numbers. Based on a patch from Jens Wilke, thanks!
+    (Closes: #606336)
+  * pg_buildext: Apply various improvements from Christoph Berg, thanks!
+
+  [ Peter Eisentraut ]
+  * pg_createcluster: Update comment alignment to match existing file better.
+    (Closes: #632702)
+
+ -- Martin Pitt <mpitt@debian.org>  Mon, 08 Aug 2011 15:31:17 +0200
+
 postgresql-common (118) unstable; urgency=low
 
   * Update Catalan debconf translations, thanks Innocent De Marchi.  

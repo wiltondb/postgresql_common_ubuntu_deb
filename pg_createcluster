@@ -132,13 +132,11 @@ sub setup_pg_hba {
     $su_comment = "
 # DO NOT DISABLE!
 # If you change this first entry you will need to make sure that the
-# database
-# super user can access the database using some other method.
-# Noninteractive
-# access to all databases is required during automatic maintenance
-# (custom daily cronjobs, replication, and similar tasks).
+# database superuser can access the database using some other method.
+# Noninteractive access to all databases is required during automatic
+# maintenance (custom daily cronjobs, replication, and similar tasks).
 #
-# Database administrative login by UNIX sockets
+# Database administrative login by Unix domain socket
 ";
     
     open (F, $fname) or error "could not open $fname for reading";
@@ -148,7 +146,7 @@ sub setup_pg_hba {
 	# add superuser entry before column description line
 	if ($search && /#.*TYPE\s+DATABASE/) {
 	    push @lines, $su_comment;
-	    $s = sprintf "%-7s %-11s %-33s %s\n", 'local', 'all', $user, $ident_method;
+	    $s = sprintf "%-7s %-15s %-39s %s\n", 'local', 'all', $user, $ident_method;
 	    push @lines, $s;
 	    push @lines, "\n";
 	    $search = 0;
@@ -607,7 +605,7 @@ not started.
 
 Set the initial value in the C<start.conf> configuration file. See B<STARTUP
 CONTROL> below. By default, B<auto> is used, which means that the cluster is
-handled by C</etc/init.d/postgresql->I<version>, i. e. starts and stops
+handled by C</etc/init.d/postgresql>, i. e. starts and stops
 automatically on system boot.
 
 =back
