@@ -1,3 +1,33 @@
+postgresql-common (121) unstable; urgency=low
+
+  [ Martin Pitt ]
+  * debian/supported-versions: Switch Ubuntu 11.10 to 9.1 (LP: #833684) and
+    also preemtively add Ubuntu 12.04 (which will ship with 9.1, too).
+  * debian/control: Bump Standards-Version to 3.9.2, no changes necessary.
+  * debian/rules: Call dh_installinit with -r to avoid restarting on upgrade.
+    (Closes: #639140)
+  * debian/control: Wrap dependencies.
+  * debian/control, debian/rules: Convert from cdbs to dh, and bump
+    Standards-Version to 7.
+  * debian/control, debian/rules: Build the versionless metapackages from this
+    source instead of the current postgresql-X.Y source. This behaves better
+    with backports. Thanks to Christoph Berg for the suggestion.
+  * debian/postgresql-common.lintian-overrides: Don't complain about missing
+    manpage for pg_config, it's shipped by libpq-dev.
+  * debian/control: Update description of the metapackages to actually say
+    "metapackage" to quiesce lintian.
+  * Split POD of pg_buildext into pg_buildext.pod, and update debian/rules to
+    build the manpage from there. Fixes lintian "shell syntax failure"
+    error.
+
+  [ Peter Eisentraut ] 
+  * pg_createcluster:
+    - Use "peer" instead of "ident" on local socket connections from 9.1 on.
+    - Apply pg_hba.conf adjustments to replication connections as well.
+    - (Closes: #632702)
+
+ -- Martin Pitt <mpitt@debian.org>  Sat, 27 Aug 2011 14:01:11 +0200
+
 postgresql-common (120) unstable; urgency=low
 
   * PgCommon.pm, cluster_info(): Do not consider external_pid_file
