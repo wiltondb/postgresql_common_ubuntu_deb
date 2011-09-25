@@ -16,7 +16,9 @@ Depends: postgresql-client-common (>= ${source:Version}),
  debconf (>= 0.5.00) | debconf-2.0,
  lsb-base (>= 3.0-3),
  ssl-cert (>= 1.0.11),
+ logrotate ${logrotate:version},
  ${misc:Depends}
+Breaks: ${common-breaks}
 Description: PostgreSQL database-cluster manager
  The postgresql-common package provides a structure under which
  multiple versions of PostgreSQL may be installed and/or multiple
@@ -55,6 +57,7 @@ Package: postgresql-server-dev-all
 Architecture: all
 Depends: ${misc:Depends}, 
  postgresql-common (>= 117~),
+ lsb-release,
  dctrl-tools,
  ${server-dev-all-depends}
 Description: extension build tool for multiple PostgreSQL versions
@@ -124,9 +127,6 @@ Description: additional facilities for PostgreSQL (supported version)
  The PostgreSQL contrib package provides several additional features
  for the PostgreSQL database. contrib often serves as a testbed for
  features before they are adopted into PostgreSQL proper.
- .
- This package always depends on the currently supported contrib
- package for PostgreSQL.
  .
  PostgreSQL is an object-relational SQL database management system.
  This package always depends on the currently supported PostgreSQL

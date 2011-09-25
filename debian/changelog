@@ -1,3 +1,30 @@
+postgresql-common (122) unstable; urgency=low
+
+  * debian/control: Fix duplicate package description. (Closes: #639562)
+  * debian/control: Add lsb-release dependency to -server-dev-all, as the
+    pg_buildext tool needs it.
+  * pg_wrapper: Find libreadline in multiarch directory, too.
+    (Closes: #640520)
+  * debian/rules: logrotate 3.8.0 requires specifying the "su" option, which
+    is not backportable. Dynamically check the available logrotate version,
+    and add it if it is >= 3.8. Also dynamically generate a dependency or
+    breaks to logrorate 3.8+. (Closes: #640493)
+  * PgCommon.pm: Allow '@' characters in LC_CTYPE/LC_COLLATE values. Thanks to
+    Willi Mann for the patch. (Closes: #640031)
+  * pg_upgradecluster: Print message for running the upgrade.d scripts, thanks
+    Karsten Hilbert.
+  * t/040_upgrade.t: Add test case for a database with read only default
+    transactions. Reproduces #599085.
+  * pg_upgradecluster: Set superuser configuration value of
+    'default_transaction_read_only' to 'off' during the upgrade, so that
+    upgrading databases with read only default transactions actually works.
+    Thanks Karsten Hilbert for the suggestion. (Closes: #599085)
+  * t/040_upgrade.t, pg_upgradecluster: Consistently use upper case for SQL
+    keywords.
+  * Correct wrong bug reference in previous changelog.
+
+ -- Martin Pitt <mpitt@debian.org>  Sun, 25 Sep 2011 21:38:20 +0200
+
 postgresql-common (121) unstable; urgency=low
 
   [ Martin Pitt ]
@@ -24,7 +51,7 @@ postgresql-common (121) unstable; urgency=low
   * pg_createcluster:
     - Use "peer" instead of "ident" on local socket connections from 9.1 on.
     - Apply pg_hba.conf adjustments to replication connections as well.
-    - (Closes: #632702)
+    - (Closes: #639016)
 
  -- Martin Pitt <mpitt@debian.org>  Sat, 27 Aug 2011 14:01:11 +0200
 
