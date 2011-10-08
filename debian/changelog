@@ -1,3 +1,18 @@
+postgresql-common (124) unstable; urgency=medium
+
+  * Keeping urgency medium, as 123 did not make it into testing yet.
+  * PgCommon.pm, cluster_info(): Use /bin/ps instead of reading /proc/*/comm,
+    the latter was reported to not work on some systems.
+  * pg_ctlcluster: Use PgCommon::check_pidfile_running and drop duplicated
+    code.
+  * pg_wrapper: The previous multiarch globbing was wrong, as it looked for
+    the architecture in uname() (which doesn't work on i386, where uname says
+    i686). Now get the multiarch library path from whereever psql expects
+    libedit.so to be, so that this even works if you install postgresql-client
+    for a foreign architecture.
+
+ -- Martin Pitt <mpitt@debian.org>  Sat, 08 Oct 2011 11:48:46 +0200
+
 postgresql-common (123) unstable; urgency=medium
 
   * Urgency medium, as bug 644078 slipped into testing, and is quite a nasty
