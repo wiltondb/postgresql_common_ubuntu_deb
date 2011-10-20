@@ -1,3 +1,32 @@
+postgresql-common (125) unstable; urgency=low
+
+  * Add debian/backport-ppa: Script to generate and upload backport packages
+    to my Ubuntu PPA. Only for personal use.
+  * Add t/160_alternate_confroot.t: Test creation, operation, upgrading, and
+    removal of clusters as user nobody using $PG_CLUSTER_CONF_ROOT. This
+    reproduces LP#835630 and other bugs.
+  * PgCommon.pm: If $PG_CLUSTER_CONF_ROOT is set, untaint it.
+  * pg_upgradecluster: Don't hardcode /etc/postgresql/, use
+    $PgCommon::confroot to respect $PG_CLUSTER_CONF_ROOT. (LP: #835630)
+  * pg_upgradecluster: Add --logfile option to specify a custom log file for
+    the upgraded cluster. Necessary if you want to run this on
+    per-user clusters and can't write into /var/log/postgresql/.
+  * pg_ctlcluster: When starting as root for >= 9.1, adjust the OOM killer
+    protection to -16, so that the postmaster does not get OOM-killed so
+    easily (as it appears to claim all the shared memory). 9.1.1-3 and later
+    resets oomadj of child processes to 0, so that the client backends can
+    still get OOM-killed. Add tests to t/020_create_sql_remove.t.
+    (LP: #854590)
+  * debian/control: Add Breaks: to postgresql-9.1 versios before 9.1.1-3, as
+    they do not reset oomadj for child processes. This is a precaution to
+    avoid running all the client backends with -16 as well.
+  * Add t/170_extensions.t: Check that all shipped extensions install and
+    remove.
+  * Add t/180_ecpg.t: Check that ecpg works. In t/001_packages.t, check that
+    libecpg-dev is installed.
+
+ -- Martin Pitt <mpitt@debian.org>  Thu, 20 Oct 2011 12:17:30 +0200
+
 postgresql-common (124) unstable; urgency=medium
 
   * Keeping urgency medium, as 123 did not make it into testing yet.
