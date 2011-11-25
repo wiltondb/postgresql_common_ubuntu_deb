@@ -1,3 +1,15 @@
+postgresql-common (126) unstable; urgency=low
+
+  * pg_ctlcluster: Prefer setting oom_score_adj over oom_adj, as the latter is
+    deprecated. (Closes: #646096)
+  * Add debian/tests/{control,system}: DEP-8/autopkgtest control files for
+    running the integration tests.
+  * t/020_create_sql_remove.t: Set stdin for forked psql process, so that the
+    test suite run does not need a defined stdin.
+  * debian/control: Clean up metapackage descriptions. (Closes: #649400)
+
+ -- Martin Pitt <mpitt@debian.org>  Fri, 25 Nov 2011 11:20:29 +0100
+
 postgresql-common (125) unstable; urgency=low
 
   * Add debian/backport-ppa: Script to generate and upload backport packages
