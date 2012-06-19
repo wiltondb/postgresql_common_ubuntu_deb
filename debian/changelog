@@ -1,3 +1,32 @@
+postgresql-common (131) unstable; urgency=low
+
+  [ Martin Pitt ]
+  * debian/backport-ppa: Adjust for lucid, build -9.2 for oneiric as well.
+  * debian/control: Move bzr branches to alioth, so that other members of
+    pkg-postgresql can commit. Update Vcs-* tags.
+  * debian/control: Set Maintainer: to pkg-postgresql group, and move myself
+    to Uploaders:.
+  * debian/README.Devel: Update for moved packaging branches.
+  * debian/backport-ppa: Disable dpkg 1.16.2 build dependency for natty as
+    well.
+  * debian/tests/control: Drop "breaks-computer" restriction. While DEP-8
+    mentions it, autopkgtest does not understand it yet and skips the test.
+  * debian/tests/system: Run testsuite under en_US.UTF-8, as autopkgtests sets
+    it to C by default.
+  * t/180_ecpg.t: Ensure that test.pgc is readable for nobody.
+  * debian/tests/system: Run the packaged tests instead of the ones in the
+    local build tree.
+  * debian/tests/system: Unset $TMPDIR so that 'postgres' and 'nobody' do not
+    fall over the autopkgtest provided $TMPDIR which is not world writable.
+  * t/030_errors.t: Fix nonzero exit code which caused stderr output.
+
+  [ Christoph Berg ]
+  * pg_buildext: Also set DESTDIR and VPATH for the configure, build and clean
+    targets.
+  * Add myself to Uploaders.
+
+ -- Martin Pitt <mpitt@debian.org>  Tue, 19 Jun 2012 19:26:12 +0200
+
 postgresql-common (130) unstable; urgency=low
 
   [ Christoph Berg ]

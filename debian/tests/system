@@ -9,4 +9,11 @@ else
     locale-gen ru_RU ru_RU.UTF-8
 fi
 
-./testsuite
+# ensure that en_US.utf8 exists
+if [ -n "`LANG=en_US.utf8 locale 2>&1 1>/dev/null`" ]; then
+    echo "en_US.utf8 locale does not exist, aborting" >&2
+    exit 1
+fi
+
+cd /usr/share/postgresql-common
+env -u TMPDIR LANG=en_US.utf8 ./testsuite
