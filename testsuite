@@ -57,21 +57,28 @@ if [ -d /var/log/postgresql ]; then
     install -d -m 1775 -o root -g postgres /var/log/postgresql
 fi
 
+# reset core limit for pg_ctl tests
+ulimit -S -c 0
+
 # set variables which cause taint check errors
 export IFS=' '
 export CDPATH=/usr
 export ENV=/nonexisting
 export BASH_ENV=/nonexisting
 
+if [ $# -eq 0 ]; then
+    set -- $TESTSDIR/*.t
+fi
+
 echo "====== Running all tests with default umask 022 ======="
 umask 022
-for T in $TESTSDIR/*.t; do
+for T; do
     echo "=== Running test `basename $T`... ==="
     perl $T
 done
 echo "====== Running all tests with tight umask 077 ======="
 umask 077
-for T in $TESTSDIR/*.t; do
+for T; do
     echo "=== Running test `basename $T`... ==="
     perl $T
 done

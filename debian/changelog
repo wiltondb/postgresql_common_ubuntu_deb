@@ -1,3 +1,30 @@
+postgresql-common (133) unstable; urgency=low
+
+  [ Christoph Berg ]
+  * Add .bzrignore file.
+  * PgCommon.pm: Check IPv4 and IPv6 in next_free_port(). (Closes: #678858)
+
+  [ Peter Eisentraut ]
+  * debian/control: Add myself to Uploaders.
+  * debian/postgresql-common.lintian-overrides: Remove unused
+    binary-without-manpage overrides (files were moved to
+    postgresql-client-common package).
+  * debian/rules: Catch errors in for loops.
+  * pg_wrapper: Avoid Perl warnings if psql is linked against libreadline
+    instead of libedit, even though that is not standard anymore.
+  * testsuite: Reset core limit for pg_ctl tests.
+  * testsuite: Allow running individual tests by passing them on the
+    command line.
+
+  [ Martin Pitt ]
+  * pg_ctlcluster: Do not remove the PID file after SIGKILLing the
+    postmaster in the "last-ditch effort to shut down" in --force mode. This
+    is a potentially dangerous thing to do when trying to start a second
+    postmaster in parallel while the first one is still being shut down.
+    (see http://archives.postgresql.org/pgsql-general/2012-07/msg00475.php)
+
+ -- Martin Pitt <mpitt@debian.org>  Thu, 26 Jul 2012 13:20:10 +0200
+
 postgresql-common (132) unstable; urgency=low
 
   [ Martin Pitt ]
