@@ -1,3 +1,33 @@
+postgresql-common (135) experimental; urgency=low
+
+  [ Martin Pitt ]
+  * pg_createcluster: For 9.2 and higher, use the new ssl_{cert,key}_file
+    options instead of creating symlinks in the data directory.
+    (Closes: #680162)
+  * pg_upgradecluster: Set above options to the old cluster's SSL cert/key
+    symlink destinations, if they exist.
+  * debian/maintscripts-functions: Configure alternatives for manpages in
+    -contrib. This will only take effect after (re)installing
+    postgresql-contrib-9.2. (Closes: #680571)
+  * debian/postgresql-common.postgresql.init: Fix "status" output to be more
+    useful and legible, and exit with code 3 if any cluster is down.
+    (Closes: #656363)
+  * debian/postgresql-common.postgresql.init: Show a warning message if no
+    clusters exist. (Closes: #677604)
+  * t/041_upgrade_custompaths.t: Run test with a cluster that is down, to
+    verify that pg_upgradecluster works for non-running clusters, too.
+  * pg_upgradecluster: Move encoding detection after restarting the cluster
+    with restricted connections, and drop the check that the cluster is
+    running. With this, pg_upgradecluster also works for clusters which are
+    not running. (Closes: #681344)
+
+  [ Peter Eisentraut ]
+  * pg_createcluster: For PostgreSQL >= 9.2, use initdb options to set the
+    default authentication methods, instead of modifying the configuration
+    file directly. (Closes: #685043)
+
+ -- Martin Pitt <mpitt@debian.org>  Fri, 17 Aug 2012 15:28:35 +0200
+
 postgresql-common (134) unstable; urgency=low
 
   * debian/backport-ppa: Fix syntax error.
