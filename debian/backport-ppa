@@ -13,7 +13,7 @@ SRC=`dpkg-parsechangelog  | grep ^Source | cut -f2- -d' '`
 if [ "$SRC" = postgresql-9.1 ]; then
     RELEASES='lucid natty'
 elif [ "$SRC" = postgresql-9.2 ]; then
-    RELEASES='lucid oneiric precise'
+    RELEASES='lucid natty oneiric precise quantal'
 else
     RELEASES='lucid natty oneiric precise'
 fi
@@ -24,12 +24,21 @@ SINCE_VERSION=`dpkg-parsechangelog -n2 | grep urgency=| tail -n1 | awk '{print $
 
 export DEBEMAIL=martin.pitt@ubuntu.com
 
+# do first upload with orig tarball, subsequent ones without
+ORIG="-sa"
 for release in $RELEASES; do
     dch -D$release -v"$CUR_VERSION~${release}" -b 'Backport'
     if [ "$release" = lucid -o "$release" = "natty" -o "$release" = oneiric ]; then
         sed -i 's/dpkg-dev.*| hardening-wrapper/hardening-wrapper/' debian/control
     fi
-    bzr bd -S -- -sd -v$SINCE_VERSION
-    bzr revert --no-backup debian/changelog debian/control
+    if [ "$SRC" = "postgresql-9.1" -a "$release" = "lucid" ]; then
+        # libraries are built by -9.2 now, and PPAs disallow building older versions
+        perl -000 -ne 'print $_ unless /^Package: lib/' -i debian/control
+        sed -i 's/fail-missing/list-missing/' debian/rules
+        sed -i 's/python-dev,/python-dev, libpq-dev (>= 9.1),/' debian/control
+    fi
+    bzr bd -S -- --no-lintian "$ORIG" -v$SINCE_VERSION
+    bzr revert --no-backup
     dput ppa:pitti/postgresql ../${SRC}_${CUR_VERSION}~${release}_source.changes
+    ORIG="-sd"
 done
