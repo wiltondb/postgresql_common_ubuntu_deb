@@ -6,7 +6,7 @@ require File::Temp;
 
 use lib 't';
 use TestLib;
-use Test::More tests => 171;
+use Test::More tests => 155;
 
 use lib '/usr/share/postgresql-common';
 use PgCommon;
@@ -192,7 +192,7 @@ print F "foo\n";
 close F;
 chmod 0644, "/etc/postgresql/$version/main/pg_hba.conf" or die "chmod: $!";
 
-if ($version lt '8.4') {
+if ($version < '8.4') {
     like_program_out 'postgres', "pg_ctlcluster $version main start", 0, 
 	qr/WARNING.*connection to the database failed.*pg_hba.conf/is,
 	'pg_ctlcluster start warns about invalid pg_hba.conf';
@@ -238,13 +238,13 @@ is_program_out 'postgres', "pg_dropcluster $version main", 0, '',
 # graceful handling of absent data dir (might not be mounted)
 ok ((system "pg_createcluster $version main >/dev/null") == 0,
     "pg_createcluster succeeds");
-rename "/var/lib/postgresql", "/var/lib/postgresql.orig" or die "rename: $!";
+rename "/var/lib/postgresql/$version", "/var/lib/postgresql/$version.orig" or die "rename: $!";
 my $outref;
 is ((exec_as 0, "pg_ctlcluster $version main start", $outref, 1), 1,
     'pg_ctlcluster fails on nonexisting /var/lib/postgresql');
 like $$outref, qr/^Error:.*\/var\/lib\/postgresql.*not accessible.*$/, 'proper error message for nonexisting /var/lib/postgresql';
 
-rename "/var/lib/postgresql.orig", "/var/lib/postgresql" or die "rename: $!";
+rename "/var/lib/postgresql/$version.orig", "/var/lib/postgresql/$version" or die "rename: $!";
 is_program_out 'postgres', "pg_ctlcluster $version main start", 0, '',
     'pg_ctlcluster start succeeds again with reappeared /var/lib/postgresql';
 is_program_out 'postgres', "pg_ctlcluster $version main stop", 0, '', 'stopping cluster';
@@ -322,60 +322,6 @@ close F;
 
 unlike_program_out 0, "pg_dropcluster $MAJORS[-1] broken", 0, qr/error/i, 
     'pg_dropcluster cleans up broken cluster configuration (/etc with pgdata and postgresql.conf and partial /var)';
-
-check_clean;
-
-# check that a failed pg_createcluster leaves no cruft behind: try creating a
-# cluster on a 10 MB tmpfs
-my $cmd = <<EOF;
-exec 2>&1
-set -e
-mkdir -p /var/lib/postgresql
-mount -t tmpfs -o size=10000000 none /var/lib/postgresql
-# this is supposed to fail
-LC_MESSAGES=C pg_createcluster $MAJORS[-1] test && exit 1 || true
-echo -n "ls>"
-# should not output anything
-ls /etc/postgresql 
-ls /var/lib/postgresql
-echo "<ls"
-EOF
-
-my $result;
-$result = exec_as 'root', "echo '$cmd' | unshare -m sh", $outref;
-
-is $result, 0, 'script failed';
-like $$outref, qr/No space left on device/i, 
-    'pg_createcluster fails due to insufficient disk space';
-like $$outref, qr/\nls><ls\n/, 'does not leave files behind';
-
-
-# check disk full conditions on startup
-my $cmd = <<EOF;
-set -e
-export LC_MESSAGES=C
-mkdir -p /etc/postgresql /var/lib/postgresql /var/log/postgresql
-mount -t tmpfs -o size=1000000 none /etc/postgresql
-mount -t tmpfs -o size=50000000 none /var/lib/postgresql
-mount -t tmpfs -o size=1000000 none /var/log/postgresql
-pg_createcluster $MAJORS[-1] test
-
-# fill up /var/lib/postgresql
-! cat < /dev/zero > /var/lib/postgresql/cruft 2>/dev/null
-echo '-- full lib --'
-! pg_ctlcluster $MAJORS[-1] test start
-echo '-- end full lib --'
-echo '-- full lib log --'
-cat /var/log/postgresql/postgresql-$MAJORS[-1]-test.log
-echo '-- end full lib log --'
-EOF
-
-$result = exec_as 'root', "echo '$cmd' | unshare -m sh", $outref;
-is $result, 0, 'script failed';
-like $$outref, qr/^-- full lib --.*No space left on device.*^-- end full lib --/ims, 
-    'pg_ctlcluster prints error message';
-like $$outref, qr/^-- full lib log --.*No space left on device.*^-- end full lib log --/ims, 
-    'log file has error message';
 
 check_clean;
 

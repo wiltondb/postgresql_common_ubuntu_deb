@@ -1,3 +1,57 @@
+postgresql-common (137) experimental; urgency=low
+
+  [ Martin Pitt ]
+  * debian/backport-ppa: Disable xz compression for lucid.
+  * debian/backport-ppa: Disable libraries for -9.1/natty as well, built by
+    9.2 now.
+  * debian/backport-ppa: Ensure that backport PPA versions are always smaller
+    than the versions in -updates.
+  * pg_wrapper: Always use the latest available client version of "psql"
+    instead of the target cluster's. psql is backwards compatible to all major
+    versions that we support in any release. Update tests to use "createdb"
+    instead of "psql" for --version tests, and add a new test for the psql
+    special case to t/020_create_sql_remove.t. (Closes: #639108)
+  * debian/postgresql-common.triggers: Also watch for changes in
+    /usr/share/hunspell/; pg_updatedicts handles these as well.
+    (Closes: #689994)
+  * debian/tests/control: Add netcat-openbsd test dependency for the
+    next_free_port() tests added below.
+  * debian/backport-ppa: Drop natty (EOL), add raring for 9.2.
+  * debian/supported-versions: Add Ubuntu 13.04.
+  * testsuite: Run with overlaid tmpfses on the postgresql /etc/ and /var
+    directories in an unshared namespace. This is more robust against
+    protecting existing clusters, always cleans up after itself properly, and
+    also speeds up testing.
+  * t/031_errors_disk_full.t: Drop check for existence of unshare, as
+    ./testsuite now unconditionally requires it.
+  * debian/postgresql-common.postinst: Only chown /var/lib/postgresql if it
+    does not already have the correct ownership. This avoids failures when the
+    directory is NFS mounted. Thanks Hugh Davenport! (Closes: #693958)
+
+  [ Christoph Berg ]
+  * testsuite: Move 'disk full' tests from 030_errors to new file
+    031_errors_disk_full.
+  * testsuite: Note that Test::More 0.87 is required for done_testing() in
+    170_extensions.
+  * testsuite 005_PgCommon: Add next_free_port tests (using /bin/nc).
+  * supported-versions: Make output configurable via $PG_SUPPORTED_VERSIONS,
+    ~/.pg_supported_versions, and /etc/postgresql-common/supported_versions.
+    (Closes: #646700)
+  * supported-versions: Add debian-backports and pgdg sections.
+    (Closes: #650680)
+  * For bpo and pgdg builds (determined by the version number), create
+    /etc/postgresql-common/supported_versions with appropriate content.
+  * Replace version string comparisions in perl scripts to use numerical
+    operators, so things will continue to work when PostgreSQL 10.0 is
+    released.
+  * debian/rules: Use sort -n for sorting supported-versions output.
+  * debian/rules: Use apt-cache policy instead of apt-cache show to determine
+    the "candidate" logrotate version.
+  * testsuite 020_create_sql_remove: Fix plperl test to work with 8.2.
+  * testsuite 085_pg_ctl.conf: Skip for 8.2.
+
+ -- Martin Pitt <mpitt@debian.org>  Sat, 15 Dec 2012 21:32:30 +0100
+
 postgresql-common (136) experimental; urgency=low
 
   [ Martin Pitt ]

@@ -5,14 +5,14 @@ use strict;
 use lib 't';
 use TestLib;
 
-use Test::More;
+use Test::More 0.87; # needs libtest-simple-perl backport on lenny
 
 use lib '/usr/share/postgresql-common';
 use PgCommon;
 
 my $v = $MAJORS[-1];
 
-if ($v lt '9.1') {
+if ($v < '9.1') {
     pass 'No extensions for version < 9.1';
     done_testing(1);
     exit 0;

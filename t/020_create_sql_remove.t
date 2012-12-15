@@ -11,7 +11,7 @@ use TestLib;
 use lib '/usr/share/postgresql-common';
 use PgCommon;
 
-use Test::More tests => 115 * ($#MAJORS+1);
+use Test::More tests => 117 * ($#MAJORS+1);
 
 sub check_major {
     my $v = $_[0];
@@ -25,7 +25,7 @@ sub check_major {
         'Socket and pid file are in /var/run/postgresql/';
 
     # verify that exactly one postmaster is running
-    my @pm_pids = pidof (($v ge '8.2') ? 'postgres' : 'postmaster');
+    my @pm_pids = pidof (($v >= '8.2') ? 'postgres' : 'postmaster');
     is $#pm_pids, 0, 'Exactly one postmaster process running';
 
     # check environment
@@ -46,7 +46,7 @@ sub check_major {
     is_program_out 'postgres', "pg_ctlcluster $v main restart", 0, '',
         'cluster restarts with new environment file';
 
-    @pm_pids = pidof (($v ge '8.2') ? 'postgres' : 'postmaster');
+    @pm_pids = pidof (($v >= '8.2') ? 'postgres' : 'postmaster');
     is $#pm_pids, 0, 'Exactly one postmaster process running';
     %env = pid_env $pm_pids[0];
     is $env{'PGEXTRAVAR1'}, '1', 'correct value of PGEXTRAVAR1 in environment';
@@ -58,7 +58,11 @@ sub check_major {
 	'Socket, but not PID file in /var/run/postgresql/';
 
     # verify that the correct client version is selected
-    like_program_out 'postgres', 'psql --version', 0, qr/^psql \(PostgreSQL\) $v/,
+    like_program_out 'postgres', 'createdb --version', 0, qr/^createdb \(PostgreSQL\) $v/,
+        'pg_wrapper selects version number of cluster';
+
+    # we always want to use the latest version of "psql", though.
+    like_program_out 'postgres', 'psql --version', 0, qr/^psql \(PostgreSQL\) $MAJORS[-1]/,
         'pg_wrapper selects version number of cluster';
 
     my $default_log = "/var/log/postgresql/postgresql-$v-main.log";
@@ -112,7 +116,7 @@ sub check_major {
 
     # verify that explicitly configured log file trumps log symlink
     PgCommon::set_conf_value ($v, 'main', 'postgresql.conf', 
-        ($v ge '8.3' ? 'logging_collector' : 'redirect_stderr'), 'on');
+        ($v >= '8.3' ? 'logging_collector' : 'redirect_stderr'), 'on');
     PgCommon::set_conf_value $v, 'main', 'postgresql.conf', 'log_filename', "$v#main.log";
     is ((exec_as 'root', "pg_ctlcluster $v main start"), 0, 
         'restarting cluster with explicitly configured log file');
@@ -172,7 +176,8 @@ Bob|1
 	0, qr/^root:/, 'calling PL/PerlU function';
 
     # Check PL/Perl trusted
-    is_program_out 'nobody', 'createlang plperl nobodydb', 0, '', 'createlang plperl succeeds for user nobody';
+    my $pluser = ($v >= '8.3') ? 'nobody' : 'postgres'; # pg_pltemplate allows non-superusers to install trusted languages in 8.3+
+    is_program_out $pluser, 'createlang plperl nobodydb', 0, '', "createlang plperl succeeds for user $pluser";
     is ((exec_as 'nobody', "psql nobodydb -qc \"${fn_cmd};\""), 1, 'creating unsafe PL/Perl function as user nobody fails');
     is_program_out 'nobody', 'psql nobodydb -qc "CREATE FUNCTION remove_vowels(text) RETURNS text AS \'\\$_[0] =~ s/[aeiou]/_/ig; return \\$_[0];\' LANGUAGE plperl;"',
 	0, '', 'creating PL/Perl function as user nobody succeeds';
@@ -187,7 +192,7 @@ Bob|1
 	0, "Foo2\n", 'calling PL/Python function';
 
     # Check PL/Python3 (untrusted)
-    if ($v ge '9.1') {
+    if ($v >= '9.1') {
 	is_program_out 'postgres', 'createlang plpython3u nobodydb', 0, '', 'createlang plpython3u succeeds for user postgres';
 	is_program_out 'postgres', 'psql nobodydb -qc "CREATE FUNCTION capitalize3(text) RETURNS text AS \'import sys; return args[0].capitalize() + sys.version[0]\' LANGUAGE plpython3u;"',
 	    0, '', 'creating PL/Python3 function as user postgres succeeds';
@@ -269,7 +274,7 @@ Bob|1
     $adj = <F>;
     chomp $adj;
     close F;
-    if ($v ge '9.1') {
+    if ($v >= '9.1') {
 	cmp_ok $adj, '<=', -5, 'postgres >= 9.1 master has OOM killer protection';
     } else {
 	is $adj, 0, 'postgres < 9.1 master has no OOM adjustment';
