@@ -1,3 +1,15 @@
+postgresql-common (138) experimental; urgency=low
+
+  [ Christoph Berg ]
+  * testsuite: start localhost interface which is down after unshare -n.
+
+  [ Martin Pitt ]
+  * testsuite: Stop currently running clusters, just as the script has done
+    until 136.
+  * testsuite: Use a more elegant way of re-execing ourselves through unshare.
+
+ -- Martin Pitt <mpitt@debian.org>  Sun, 16 Dec 2012 18:57:12 +0100
+
 postgresql-common (137) experimental; urgency=low
 
   [ Martin Pitt ]

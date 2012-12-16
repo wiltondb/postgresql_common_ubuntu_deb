@@ -19,8 +19,9 @@
 set -e
 
 # call ourselves through unshare in a way that keeps normal stdin
-unshare -uimn sh -- -c "`tail -n +25 $0`" "$0" "$@"
-exit $?
+if [ -z "$UNSHARED" ]; then
+    UNSHARED=1 exec unshare -uimn "$0" "$@"
+fi
 
 # unshared program starts here
 set -e
@@ -53,6 +54,11 @@ if [ "$(id -u)" != 0 ]; then
     exit 1
 fi
 
+# stop currently running clusters
+if [ -x "/etc/init.d/postgresql" ]; then
+    /etc/init.d/postgresql stop
+fi
+
 # let everything happen in overlay tmpfses to avoid interfering with already
 # existing clusters; this also speeds up testing
 created_dirs=""
@@ -74,6 +80,9 @@ chmod 2775 /var/run/postgresql
 
 # reset core limit for pg_ctl tests
 ulimit -S -c 0
+
+# start localhost interface
+ifconfig lo up
 
 # set variables which cause taint check errors
 export IFS=' '
