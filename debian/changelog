@@ -1,3 +1,37 @@
+postgresql-common (139) experimental; urgency=low
+
+  [ Christoph Berg ]
+  * pg_virtualenv: New program to create throw-away clusters for running
+    regression tests.
+  * testsuite: unshare needs "--" or else it eats our options.
+  * testsuite: Require netcat-openbsd to be installed.
+  * testsuite: Move locale generation here from debian/tests/system, also
+    generate en_US.utf8 locale; unset LC_ALL.
+  * Drop debian/tests, moved to the postgresql-* server packages.
+  * testsute 005_PgCommon: Do the ipv4 tests before the ipv6 ones; skip
+    the ipv6 for perl <= 5.10 (i.e. on squeeze and lucid).
+  * PgCommon.pm, pg_ctlcluster, pg_createcluster, t/030_errors.t: 9.3 renames
+    unix_socket_directory to unix_socket_directories.
+  * pg_wrapper: Document that PGHOST overrides PGCLUSTER. (Closes: #697291)
+  * pg_wrapper: Skip cluster selection if --host is given on the command line.
+    (Closes: #637017) While we are at it, improve --port parsing, too.
+  * t/010_defaultport_cluster.t: Add test cases for the above pg_wrapper
+    changes.
+  * t/040_upgrade.t: dup2 psql stderr to suppress warning 'could not change
+    directory to "/tmp/pgtest'.
+  * postgresql-client-common: Add Depends: netbase for getprotobyname() in
+    PgCommon.pm. (Closes: #697377)
+
+  [ Martin Pitt ]
+  * debian/supported-versions: Read /etc/os-release if present, and fall back
+    to lsb-release. Exit with a proper error message if neither is present.
+    This gets rid of the (currently undeclared) strict dependency on
+    lsb-release. (Closes: #697182)
+  * debian/README.Debian: Update versions to 8.4/9.1, as current for Squeeze
+    and Wheezy. (Closes: #697239)
+
+ -- Christoph Berg <myon@debian.org>  Sun, 06 Jan 2013 10:24:49 +0100
+
 postgresql-common (138) experimental; urgency=low
 
   [ Christoph Berg ]
