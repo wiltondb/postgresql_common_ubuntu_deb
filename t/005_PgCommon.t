@@ -13,6 +13,8 @@ use TestLib;
 
 use Test::More tests => 29;
 
+my $delay = 200_000; # 200ms
+
 my $tdir = tempdir (CLEANUP => 1);
 $PgCommon::confroot = $tdir;
 
@@ -129,7 +131,11 @@ is_deeply (\%conf, {
       'quotestr' => "test ! -f '/tmp/%f' && echo 'yes'"
     }, 'read_conf_file() parsing');
 
-# test read_conf_file() with an include directive
+# test read_conf_file() with include directives
+open F, ">$tdir/8.4/test/condinc.conf" or die "Could not create $tdir/condinc.conf: $!";
+print F "condint = 42\n";
+close F;
+
 open F, ">$tdir/bar.conf" or die "Could not create $tdir/bar.conf: $!";
 print F <<EOF;
 # test configuration file
@@ -140,6 +146,8 @@ print F <<EOF;
 intval = -1
 include '8.4/test/foo.conf'
 strval = 'howdy'
+include_if_exists '/nonexisting.conf'
+include_if_exists '8.4/test/condinc.conf'
 EOF
 close F;
 
@@ -153,8 +161,9 @@ is_deeply (\%conf, {
       'testpath' => '/bin/test', 
       'emptystr' => '',
       'cemptystr' => '',
-      'quotestr' => "test ! -f '/tmp/%f' && echo 'yes'"
-    }, 'read_conf_file() parsing with include directive');
+      'quotestr' => "test ! -f '/tmp/%f' && echo 'yes'",
+      'condint' => 42,
+    }, 'read_conf_file() parsing with include directives');
 
 
 # test set_conf_value()
@@ -259,11 +268,11 @@ my @pids;
 is (next_free_port, 5432, 'next_free_port is 5432');
 # open a localhost ipv4 socket
 push @pids, open2(\*CHLD_OUT, \*CHLD_IN, qw(nc -4 -q0 -l 127.0.0.1 5432));
-usleep 50_000;
+usleep $delay;
 is (next_free_port, 5433, 'next_free_port detects localhost ipv4 socket');
 # open a wildcard ipv4 socket
 push @pids, open2(\*CHLD_OUT, \*CHLD_IN, qw(nc -4 -q0 -l 5433));
-usleep 50_000;
+usleep $delay;
 is (next_free_port, 5434, 'next_free_port detects wildcard ipv4 socket');
 
 SKIP: {
@@ -272,11 +281,11 @@ SKIP: {
 
     # open a localhost ipv6 socket
     push @pids, open2(\*CHLD_OUT, \*CHLD_IN, qw(nc -6 -q0 -l ::1 5434));
-    usleep 50_000;
+    usleep $delay;
     is (next_free_port, 5435, 'next_free_port detects localhost ipv6 socket');
     # open a wildcard ipv6 socket
     push @pids, open2(\*CHLD_OUT, \*CHLD_IN, qw(nc -6 -q0 -l 5435));
-    usleep 50_000;
+    usleep $delay;
     is (next_free_port, 5436, 'next_free_port detects wildcard ipv6 socket');
 }
 

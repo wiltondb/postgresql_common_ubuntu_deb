@@ -1,3 +1,33 @@
+postgresql-common (140) experimental; urgency=low
+
+  [ Martin Pitt ]
+  * t/001_packages.t: Also check that -contrib is installed.
+  * debian/backport-ppa: Backport -common for Ubuntu 12.10.
+  * PgCommon.pm: Recognize "include_if_exists" directive. (LP: #1098986)
+  * pg_ctlcluster: Recreate a missing /var/log/postgresql/ if needed.
+    (LP: #1009989)
+  * debian/postgresql-client-common.links: Wrap pgbench with pg_wrapper.
+    (LP: #1068194)
+
+  [ Christoph Berg ]
+  * testsuite: The default list of umasks to test (022 077) can be overridden
+    by setting the environment variable PG_UMASKS.
+  * t/003_package_checks.t: Ensure psql is linked against libedit.
+  * t/005_PgCommon.t: Increase sleep time after netcat launch to 200ms.
+  * t/020_create_sql_remove.t: Test process title update.
+  * pg_createcluster: Allow passing of initdb arguments on the command line.
+    If --auth parameters are passed, skip updating the generated pg_hba.conf
+    file.
+  * pg_virtualenv: Allow passing initdb arguments to pg_createcluster.
+  * pg_upgradecluster: Print a helpful message when invoked on the target
+    version. Problem seen on #postgresql.
+  * t/030_errors.t: Adjust testsuite for this.
+  * debian/supported-versions: Handle unset variables from /etc/os-release
+    gracefully. Spotted by x4rlos on #postgresql.
+  * pg_buildext: Set USE_PGXS=1, and srcdir (needed by plr).
+
+ -- Christoph Berg <myon@debian.org>  Thu, 31 Jan 2013 10:36:41 +0100
+
 postgresql-common (139) experimental; urgency=low
 
   [ Christoph Berg ]
