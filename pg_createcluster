@@ -19,7 +19,7 @@
 use lib '/usr/share/postgresql-common';
 use PgCommon;
 use Getopt::Long;
-use POSIX qw/setlocale LC_ALL/;
+use POSIX qw/setlocale LC_ALL LC_CTYPE/;
 
 $ENV{'PATH'} = '/bin:/usr/bin'; # untaint
 
@@ -93,7 +93,6 @@ sub move_conffile {
         $realfile = readlink $realfile;
     }
     if (-e $file) {
-        print "Moving configuration file $realfile to $target...\n";
 	install_file $realfile, $target, $uid, $gid, $perms;
         unlink $file, $realfile;
 
@@ -349,7 +348,9 @@ if (-f "$datadir/PG_VERSION") {
         error "$datadir already contains a version $existingver cluster";
     }
 } else {
-    print "Creating new cluster (configuration: $confdir, data: $datadir)...\n";
+    my $loc = setlocale (LC_CTYPE);
+    print "Creating new cluster $version/$cluster ...\n";
+    print "  config $confdir\n  data   $datadir\n  locale $loc\n";
     init_db $version, $datadir, $owneruid, $ownergid, \@initdb_opts_from_cli;
     $newcluster = 1;
 }
@@ -398,7 +399,7 @@ set_cluster_socketdir $version, $cluster, $socketdir if $socketdir;
 $> = $orig_euid;
 $) = $orig_egid;
 
-print "Configuring postgresql.conf to use port $port...\n";
+print "  port   $port\n";
 set_cluster_port $version, $cluster, $port;
 
 # create log file
@@ -460,20 +461,36 @@ if ($newcluster && -e '/etc/ssl/certs/ssl-cert-snakeoil.pem' &&
     PgCommon::set_conf_value $version, $cluster, 'postgresql.conf', 'ssl', 'true';
 }
 
-# create SSL client certificate root symlink if appropriate
+# SSL client certificate CA
 if ($newcluster && -e '/etc/postgresql-common/root.crt') {
+    # check if we have a cert in there or just the boilerplate installed by our postinst
     open F, '/etc/postgresql-common/root.crt';
     my $val;
     read F, $val, 4096;
     if ($val =~ /^-----BEGIN CERTIFICATE-----/m) {
-	symlink '/etc/postgresql-common/root.crt', $datadir.'/root.crt';
+        if ($version >= '9.2') {
+            PgCommon::set_conf_value $version, $cluster, 'postgresql.conf',
+                'ssl_ca_file', '/etc/postgresql-common/root.crt';
+        } else {
+            symlink '/etc/postgresql-common/root.crt', $datadir.'/root.crt';
+        }
+    }
+}
+
+# SSL client certificate revocation list
+if ($newcluster && -e '/etc/postgresql-common/root.crl') {
+    if ($version >= '9.2') {
+        PgCommon::set_conf_value $version, $cluster, 'postgresql.conf',
+            'ssl_crl_file', '/etc/postgresql-common/root.crl';
+    } else {
+        symlink '/etc/postgresql-common/root.crl', $datadir.'/root.crl';
     }
 }
 
 # create default (empty) environment file
 open ENV, ">$confdir/environment" or error "could not create environment file";
 print ENV "# environment variables for postmaster process
-# This file has the same syntax as postgresql.conf: 
+# This file has the same syntax as postgresql.conf:
 #  VARIABLE = simple_value
 #  VARIABLE2 = 'any value!'
 # I. e. you need to enclose any value which does not only consist of letters,
@@ -558,11 +575,17 @@ link C<log> in the cluster configuration directory is ignored.
 
 If the default snakeoil SSL certificate exists
 (C</etc/ssl/certs/ssl-cert-snakeoil.pem> and
-C</etc/ssl/private/ssl-cert-snakeoil.key>), this program creates symlinks to
-these files in the data directory (C<server.crt> and C<server.key>) and enables
-SSL for that cluster (option B<ssl> in C<postgresql.conf>). Therefore all
-clusters will use the same SSL certificate by default. Of course you can
-replace these symlinks with a cluster specific certificate.
+C</etc/ssl/private/ssl-cert-snakeoil.key>), and the C<postgres> user is in the
+C<ssl-cert> Unix group, B<pg_createcluster> configures the cluster to use this
+certificate, and enables SSL. Therefore all clusters will use the same SSL
+certificate by default. For versions up to 9.1, symlinks in the data directory
+will be created (C<server.crt> and C<server.key>); for 9.2 and later, the
+appropriate C<postgresql.conf> options will be set (C<ssl_cert_file> and
+C<ssl_key_file>). Of course you can replace this with a cluster specific
+certificate. Similary for C</etc/postgresql-common/root.crt> and
+C</etc/postgresql-common/root.crl>, these files will be configured as client
+certificate CA and revocation list, when present. (C<root.crt> is initially a
+placeholder that will only be used if real certificates are added to the file.)
 
 =head1 OPTIONS
 
@@ -689,10 +712,10 @@ cluster. Please be aware that this will not stop the cluster owner from calling
 lower level tools to control the postmaster process; this option is only meant
 to prevent accidents during maintenance, not more.
 
+=back
+
 The C<pg_ctl.conf> file in the cluster configuration directory can contain
 additional options passed to pg_ctl of that cluster.
-
-=back
 
 =head1 SEE ALSO
 

@@ -1,3 +1,53 @@
+postgresql-common (141) experimental; urgency=low
+
+  [ Christoph Berg ]
+  * debian/maintscripts-functions: Fix configure_client_version to call
+    _link_manpages correctly, spotted by Kris Shannon. (Closes: #701602)
+  * debian/postgresql-common.sysctl: Note that the file is Linux-specifc and
+    do some rewording of the comments.
+  * debian/supported-versions:
+    + Deprecate 8.3 for pgdg builds.
+    + Handle missing os-release and lsb_release gracefully, just print a
+      warning. (Affects squeeze systems, Introduced by the fix for #697182).
+  * pg_buildext: Deprecate <srcdir> parameter. The docs do not mention it
+    anymore, but the script will still accept it.
+  * pg_createcluster, pg_upgradecluster: For 9.2 and higher, use the new
+    ssl_ca_file option instead of creating a root.crt symlink in the data
+    directory. (Related to the fix for #680162 below.)
+  * pg_createcluster: If /etc/postgresql-common/root.crl is present, symlink
+    it (<= 9.1), or set ssl_crl_file (>= 9.2).
+  * pg_ctlcluster: Create (first) unix_socket_directory if missing.
+  * pg_ctlcluster: Document start.conf by pointing at pg_createcluster(8).
+  * pg_lsclusters: Make output column widths dynamically adjust to contents;
+    shorten "Version" in header to "Ver".
+  * pg_upgradecluster: Get cluster encoding before shutting down the cluster
+    so we don't need to restart it in pg_upgrade mode; temporarily start the
+    cluster if needed.
+  * postgresql-client-common: For apt.postgresql.org builds (with "pgdg" in
+    the version number), depend on pgdg-keyring.
+  * Add a "apt.postgresql.org.sh" script to add that archive to sources.list.
+
+  [ Martin Pitt ]
+  * debian/backport-ppa: Stop building raring packages. The PPA is declared
+    deprecated now, moving to apt.postgresql.org.
+  * pg_createcluster: Drop "Moving configuration file.." message as it's not
+    all that interesting and we are going to add more status output.
+  * pg_createcluster: Print configuration and data directory on separate
+    lines, and also show the current locale that the cluster will use.
+    (Closes: #700271)
+  * pg_updatedicts: Cleanup tsearch data files which do not have a
+    corresponding hunspell or myspell dictionary installed any more.
+    (Closes: #689996)
+  * Adjust upgrade tests according to the changed pg_lscluster formatting.
+
+  [ Peter Eisentraut ]
+  * Add support for pg_upgrade: (Closes: #682938)
+    - pg_upgradecluster: Add options to select pg_upgrade instead of
+      dump/restore, and call pg_upgrade when selected.
+    - t/040_upgrade.t: Test all upgrade methods.
+
+ -- Christoph Berg <myon@debian.org>  Wed, 10 Apr 2013 16:25:06 +0200
+
 postgresql-common (140) experimental; urgency=low
 
   [ Martin Pitt ]
