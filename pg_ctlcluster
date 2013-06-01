@@ -24,6 +24,8 @@ use POSIX qw/setsid dup2 setlocale LC_ALL :sys_wait_h/;
 use PgCommon;
 use Fcntl 'SEEK_SET';
 
+my $mode = 'smart'; # default shutdown mode
+
 # Check for known broken configurations of this cluster
 sub check_valid_config {
     my %postgresql_conf = read_cluster_conf_file $version, $cluster,
@@ -278,7 +280,7 @@ sub stop {
     } else {
         if (!fork()) {
             close STDOUT;
-            exec $pg_ctl, '-D', $info{'pgdata'}, '-s', '-w', @pg_ctl_opts_from_cli, 'stop'; 
+            exec $pg_ctl, '-D', $info{'pgdata'}, '-s', '-w', '-m', $mode, @pg_ctl_opts_from_cli, 'stop';
         } else {
             wait;
 	    $result = $? >> 8;
@@ -316,7 +318,16 @@ sub promote {
 #
 
 exit 1 unless GetOptions ('o|options=s' => \@postmaster_auxoptions,
-    'f|force' => \$force);
+    'f|force' => \$force,
+    'm|mode=s' => \$mode,
+);
+
+if ($mode =~ /^(s(mart)?|f(ast)?|i(mmediate)?)$/) {
+    $mode = $1; # untaint
+} else {
+    print "Invalid -m mode, valid are: smart fast immediate\n";
+    exit 1;
+}
 
 if ($#ARGV < 2) {
     print "Usage: $0 <version> <cluster> <action>\n";
@@ -453,16 +464,7 @@ failure conditions.
 =item B<stop>
 
 Stops the L<postmaster(1)> server of the given cluster. By default, "smart"
-mode is used, which waits until all clients disconnected.
-
-With the B<--force> option the "fast" mode is used which rolls back all active
-transactions, disconnects clients immediately and thus shuts down cleanly. If
-that does not work, shutdown is attempted again in "immediate" mode, which can
-leave the cluster in an inconsistent state and thus will lead to a recovery run
-at the next start. If this still does not help, the B<postmaster> process is
-killed.  Exits with 0 on success, with 2 if the server is not running, and with
-1 on other failure conditions. This mode should only be used when the machine
-is about to be shut down.
+shutdown mode is used, which waits until all clients disconnected.
 
 =item B<restart>
 
@@ -484,7 +486,23 @@ operations.
 
 =over 4
 
-=item B<-o> I<option>
+=item B<-f>|B<--force>
+
+For B<stop> and B<restart>, the "fast" mode is used which rolls back all active
+transactions, disconnects clients immediately and thus shuts down cleanly. If
+that does not work, shutdown is attempted again in "immediate" mode, which can
+leave the cluster in an inconsistent state and thus will lead to a recovery run
+at the next start. If this still does not help, the B<postmaster> process is
+killed.  Exits with 0 on success, with 2 if the server is not running, and with
+1 on other failure conditions. This mode should only be used when the machine
+is about to be shut down.
+
+=item B<-m>|B<--mode> [B<smart>|B<fast>|B<immediate>]
+
+Shutdown mode to use for B<stop> and B<restart> actions, default is B<smart>.
+See pg_ctl(1) for documentation.
+
+=item B<-o>|B<--options> I<option>
 
 Pass given I<option> as command line option to the C<postmaster> process. It is
 possible to specify B<-o> multiple times. See L<postmaster(1)> for a
