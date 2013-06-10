@@ -1,3 +1,19 @@
+postgresql-common (145) unstable; urgency=low
+
+  [ Christoph Berg ]
+  * pg_ctlcluster: Use "install" instead of File::Path to create
+    unix_socket_directory. (Introduced in 141, Closes: #710093)
+
+  [ Martin Pitt ]
+  * debian/maintscripts-functions, configure_cluster(): Do not trust the
+    locale from the environment, as programs like ssh and sudo propagate
+    remote and user locale by default. Instead, only use the locale settings
+    from /etc/environment and /etc/default/locale, to prevent trying to
+    configure the default cluster with a nonexisting or hard to predict
+    locale. (LP: #969462, also see Debian #700271)
+
+ -- Christoph Berg <myon@debian.org>  Mon, 10 Jun 2013 17:01:01 +0200
+
 postgresql-common (144) unstable; urgency=low
 
   * testsuite: Allow overriding the list of versions to test (-v).
