@@ -35,7 +35,7 @@ fi
 help ()
 {
     echo "pg_virtualenv: Create throw-away PostgreSQL environment for regression tests"
-    echo "Syntax: $0 [options] command"
+    echo "Syntax: $0 [options] [command]"
     echo "    -a                use all installed server versions"
     echo "    -v 'version ...'  list of PostgreSQL versions to run [default: latest]"
     echo "    -c 'options'      extra options to pass to pg_createcluster"
@@ -67,7 +67,8 @@ if [ -z "$PG_VERSIONS" ]; then
 fi
 # shift away args
 shift $(($OPTIND - 1))
-[ "${1:-}" ] || help 1
+# if no command is given, open a shell
+[ "${1:-}" ] || set -- ${SHELL:-/bin/sh}
 
 # non-root operation: create a temp dir where we store everything
 if [ "${NONROOT:-}" ]; then
@@ -77,6 +78,7 @@ if [ "${NONROOT:-}" ]; then
     PGSYSCONFDIR="$WORKDIR/postgresql-common" # no export yet so pg_createcluster uses the original createcluster.conf
     mkdir "$PGSYSCONFDIR" "$WORKDIR/log"
     PWFILE="$PGSYSCONFDIR/pwfile"
+    LOGDIR="$WORKDIR/log"
 
     cleanup () {
 	set +e
@@ -182,11 +184,17 @@ case $PG_VERSIONS in
 esac
 
 # run program
-if [ "${run_shell:-}" ]; then
-    "$@" || {
+"$@" || EXIT="$?"
+if [ ${EXIT:-0} -gt 0 ]; then
+    for log in ${LOGDIR:-/var/log/postgresql}/*.log; do
+	echo "$log:"
+	tail -100 $log
+    done
+
+    if [ "${run_shell:-}" ]; then
 	echo "pg_virtualenv: command exited with status $?, dropping you into a shell"
 	$SHELL
-    }
-else
-    "$@"
+    fi
 fi
+
+exit ${EXIT:-0}

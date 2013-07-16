@@ -562,7 +562,8 @@ sub check_pidfile_running {
 # Return a hash with information about a specific cluster.
 # Arguments: <version> <cluster name>
 # Returns: information hash (keys: pgdata, port, running, logfile [unless it
-#          has a custom one], configdir, owneruid, ownergid, socketdir)
+#          has a custom one], configdir, owneruid, ownergid, socketdir,
+#          statstempdir)
 sub cluster_info {
     error 'cluster_info must be called with <version> <cluster> arguments' unless $_[0] && $_[1];
 
@@ -572,6 +573,7 @@ sub cluster_info {
     $result{'pgdata'} = cluster_data_directory $_[0], $_[1], \%postgresql_conf;
     $result{'port'} = $postgresql_conf{'port'} || $defaultport;
     $result{'socketdir'} = get_cluster_socketdir  $_[0], $_[1];
+    $result{'statstempdir'} = $postgresql_conf{'stats_temp_directory'};
 
     # if we can determine the running status with the pid file, prefer that
     if ($postgresql_conf{'external_pid_file'} &&
@@ -800,7 +802,7 @@ sub user_cluster_map {
 sub install_file {
     my ($source, $dest, $uid, $gid, $perm) = @_;
     
-    if (system '/usr/bin/install', '-o', $uid, '-g', $gid, '-m', $perm, $source, $dest) {
+    if (system 'install', '-o', $uid, '-g', $gid, '-m', $perm, $source, $dest) {
 	error "install_file: could not install $source to $dest";
     }
 }

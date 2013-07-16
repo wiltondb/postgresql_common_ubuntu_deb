@@ -1,3 +1,23 @@
+postgresql-common (146) unstable; urgency=low
+
+  [ Christoph Berg ]
+  * debian/supported-versions: Use "7.*" to recognize wheezy; point releases
+    now increment the second version number component. (Closes: #712586)
+  * pg_virtualenv:
+    + On error, show tail of server log file.
+    + When no command is given, open a shell.
+  * pg_createcluster: Add --createclusterconf and --environment options.
+  * pg_ctlcluster: Create stats_temp_directory when missing.
+  * pg_ctlcluster: You must run this program as the cluster owner ... or root.
+  * postgresql-common: Demote dependency on logrotate to recommends.
+    (Closes: #714982).
+
+  [ Peter Eisentraut ]
+  * PgCommon.pm, pg_createcluster, pg_dropcluster: Don't call external
+    programs with full path where not necessary.
+
+ -- Christoph Berg <myon@debian.org>  Tue, 16 Jul 2013 16:11:35 +0200
+
 postgresql-common (145) unstable; urgency=low
 
   [ Christoph Berg ]
