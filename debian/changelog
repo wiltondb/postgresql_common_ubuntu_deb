@@ -1,3 +1,38 @@
+postgresql-common (148) unstable; urgency=low
+
+  [ Christoph Berg ]
+  * debian/supported-versions:
+    + Interface change: The *last* version returned here is the "default" one.
+    + Wheezy uses "7" in /etc/os-release.
+    + Add 9.3 for pgdg (default on testing/unstable).
+  * debian/rules:
+    + Set FLAVOR variable for the type of build we are doing. Set
+      PG_SUPPORTED_VERSIONS=$FLAVOR for debian/supported-versions so we don't
+      pick up configuration from the build environment.
+    + Pick the default version from the last line of
+      `debian/supported-versions` instead of sorting the output.
+  * debian/postgresql-common.config: Sort versions to determine the latest.
+  * pg_buildext: Support "X.Y+" and "all" in debian/pgversions so packages do
+    not need to hardcode the versions they support, as that's usually not
+    necessary.
+  * pgxs_debian_control.mk: Drop the previously redundant grep check on
+    debian/pgversions which would now break "X.Y+".
+  * t: Move $delay to TestLib.pm and increase to 500ms.
+  * t/005_PgCommon.t: Use twice the delay for waiting for the first nc child.
+
+  [ Martin Pitt ]
+  * debian/postgresql-common.postinst: Don't restart servers in dict update
+    trigger. (Closes: #719282)
+  * debian/README.Debian: Update examples for -9.1 and -9.3.
+
+ -- Martin Pitt <mpitt@debian.org>  Tue, 27 Aug 2013 11:07:48 +0200
+
+postgresql-common (147) unstable; urgency=low
+
+  * Bump "really142" to "really146" to fix an error on apt.postgresql.org.
+
+ -- Christoph Berg <myon@debian.org>  Thu, 18 Jul 2013 09:11:38 +0200
+
 postgresql-common (146) unstable; urgency=low
 
   [ Christoph Berg ]
@@ -826,7 +861,7 @@ postgresql-common (110) unstable; urgency=low
 
   [ Dimitri Fontaine ]
   * Add new package postgresql-server-dev-all:
-    - "pb_buildext" tool for easy building of extension packages for multiple
+    - "pg_buildext" tool for easy building of extension packages for multiple
       server versions.
     - pgxs_debian_control.mk debian/rules include for generating
       debian/control.
