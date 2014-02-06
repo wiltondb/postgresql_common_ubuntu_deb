@@ -1,3 +1,44 @@
+postgresql-common (153) unstable; urgency=medium
+
+  [ Christoph Berg ]
+  * Replace the static logrotate configuration by generating the file
+    dynamically using ucf, triggered by watching /usr/sbin/logrotate.
+    This eases dist-upgrades that upgrade logrotate to >= 3.8 from an older
+    version (squeeze->wheezy, precise->trusty).
+  * postgresql-common.postinst: Stop debconf later so ucf can use it.
+  * postgresql-common.postinst: Call su without - to avoid a warning.
+  * t/003_package_checks.t: Add test case for logrotate.
+  * pg_createcluster, t/001_packages.t: Refactor the ssl cert test, and add
+    matching testcases in the testsuite.
+  * t/020_create_sql_remove.t: Make pipe writes unbuffered.
+  * pg_buildext: Document the loop action (present since version 141).
+  * pg_buildext: Add "installcheck" action for use with autopkgtest.
+  * pg_buildext: Support $action-$version when the loop is contained in the
+    calling script. (Mostly useful for installcheck-x.y.)
+  * postgresql-server-dev-all: Add "make" to depends because pg_buildext is
+    mostly useless without it; extensions using autopkgtest would otherwise
+    need to include it in their debian/tests/control files.
+  * pgxs_debian_control.mk: Add "clean: debian/control" and
+    ".PHONY: debian/control".
+  * pg_virtualenv: Fix exit code shown with -s.
+  * pg_createcluster, pg_virtualenv: -o will set postgresql.conf parameters.
+  * postgresql-common: In /usr/share/postgresql-common/pgdg/,
+    install apt.postgresql.org.sh to enable activating the pgdg repository.
+
+  [ Martin Pitt ]
+  * testsuite, pg_virtualenv: Don't fail if ifconfig is not installed. We
+    don't require it as a dependency, and this breaks e. g. autopkgtests in
+    minimal environments.
+  * t/150_tsearch_stemming.t: Add tests for stemming/searching with non-ASCII
+    characters. (See #689997)
+  * debian/postgresql-common.triggers: Also trigger on
+    /usr/share/postgresql/, so that installation of new server versions builds
+    the corresponding dictionaries.
+  * init.d-functions, start(): Update SELinux label of /run/postgresql if
+    restorecon is installed. Thanks Martin Lang! (Closes: #737661)
+
+ -- Christoph Berg <christoph.berg@credativ.de>  Thu, 06 Feb 2014 15:21:00 +0100
+
 postgresql-common (152) unstable; urgency=low
 
   [ Martin Pitt ]
