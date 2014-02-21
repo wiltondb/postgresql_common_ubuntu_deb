@@ -1,3 +1,19 @@
+postgresql-common (154) unstable; urgency=medium
+
+  [ Martin Pitt ]
+  * debian/postgresql-common.preinst: Drop obsolete upgrade migration.
+  * debian/maintscripts-functions, _link_manpages(): The move of pg_basebackup
+    from server to client still affects upgrades from -9.1 to -9.3. Place the
+    upgrade fix here instead of postgresql-9.1.preinst (which does not exist
+    any more now). (LP: #1270597)
+  * Update Vcs-Bzr:, bzr.d.o. does not work any more.
+
+  [ Christoph Berg ]
+  * t/031_errors_disk_full.t: Drop cluster after tests.
+  * testsuite: Always umount the tmpfs overlays.
+
+ -- Christoph Berg <myon@debian.org>  Fri, 21 Feb 2014 08:18:46 +0100
+
 postgresql-common (153) unstable; urgency=medium
 
   [ Christoph Berg ]
