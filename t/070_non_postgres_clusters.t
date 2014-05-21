@@ -53,7 +53,7 @@ if ($#MAJORS > 0) {
     my $newv = $MAJORS[-1];
 
     my $outref;
-    is ((exec_as 0, "(pg_upgradecluster $v main | sed -e 's/^/STDOUT: /')", $outref, 0), 0, 
+    is ((exec_as 0, "(pg_upgradecluster -v $newv $v main | sed -e 's/^/STDOUT: /')", $outref, 0), 0, 
 	'pg_upgradecluster succeeds');
     like $$outref, qr/Starting target cluster/, 'pg_upgradecluster reported cluster startup';
     like $$outref, qr/Success. Please check/, 'pg_upgradecluster reported successful operation';
@@ -87,7 +87,7 @@ if ($#MAJORS > 0) {
 # Check proper cleanup
 is ((system "pg_dropcluster $v main --stop"), 0, 'pg_dropcluster');
 is_program_out $owner, 'pg_lsclusters -h', 0, '', 'No clusters left';
-is ((ps 'postmaster'), '', 'No postmaster processes left');
+is ((ps $master_process), '', "No $master_process processes left");
 
 check_clean;
 

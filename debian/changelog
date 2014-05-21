@@ -1,3 +1,29 @@
+postgresql-common (155) unstable; urgency=medium
+
+  [ Christoph Berg ]
+  * postgresql-common: Maintain createcluster.conf using ucf, and add a
+    debconf question about the default use of ssl (default true, priority
+    medium). (Closes: #743918)
+  * Use "mount --make-rprivate /" inside our "unshare -m" calls.
+    (See #739593.)
+  * pg_ctlcluster: Add status action, add --foreground option, accept dash
+    (and slash) between version and cluster.
+  * Add systemd unit files as examples (testers welcome!).
+  * postgresql-client: Wrap pg_recvlogical, introduced in 9.4.
+  * t/050_encodings.t: 9.4 emits COPY command tags, suppress with psql -q.
+  * postgresql: Add Suggests: postgresql-doc. (Closes: #743755)
+  * pg_conftool: New script to read and edit PostgreSQL configuration files,
+    based on the existing read/edit functions in PgCommon.pm.
+  * pg_upgradecluster: Don't abort the upgrade if the config file symlinks are
+    already there.
+  * testsuite: Fix testsuite where -v does not include the latest version.
+  * testsuite -v -i will install packages needed for these versions.
+
+  [ Martin Pitt ]
+  * supported-versions: Welcome, Ubuntu 14.10!
+
+ -- Christoph Berg <christoph.berg@credativ.de>  Wed, 21 May 2014 17:34:09 +0200
+
 postgresql-common (154) unstable; urgency=medium
 
   [ Martin Pitt ]
