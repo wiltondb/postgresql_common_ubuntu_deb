@@ -1,3 +1,11 @@
+postgresql-common (157) unstable; urgency=medium
+
+  * Remove createcluster.conf on purge.
+  * Fix testsuite -i to install packages before invoking unshare so apt still
+    has network access.
+
+ -- Christoph Berg <myon@debian.org>  Fri, 30 May 2014 21:31:36 +0200
+
 postgresql-common (156) unstable; urgency=medium
 
   [ Christoph Berg ]
@@ -7,6 +15,7 @@ postgresql-common (156) unstable; urgency=medium
   * pg_virtualenv: Use fsync = off for speed.
   * pg_buildext: Pass -cios options to pg_virtualenv.
   * t/140_pg_config.t: Versions >= 9.3 have multiarch-enabled libpq et al.
+  * Bump to dh 9.
 
   [ Martin Pitt ]
   * Fix typo in German debconf translations. Thanks Rhonda for pointing out!
