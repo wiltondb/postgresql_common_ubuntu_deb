@@ -1144,10 +1144,7 @@ exit_on_error = off
 restart_after_crash = on
 ";
 
-$fullconf{'9.3'} = "data_directory = '/var/lib/postgresql/9.3/foo'
-hba_file = '/etc/postgresql/9.3/foo/pg_hba.conf'
-ident_file = '/etc/postgresql/9.3/foo/pg_ident.conf'
-external_pid_file = '/var/run/postgresql/9.3-foo.pid'
+$fullconf{'9.3'} = "external_pid_file = '(none)'
 listen_addresses = 'localhost'
 port = 5435
 max_connections = 100
@@ -1323,10 +1320,10 @@ timezone = 'CET'
 timezone_abbreviations = 'Default'
 extra_float_digits = 0
 client_encoding = sql_ascii
-lc_messages = 'de_DE.utf8'
-lc_monetary = 'de_DE.utf8'
-lc_numeric = 'de_DE.utf8'
-lc_time = 'de_DE.utf8'
+lc_messages = 'C'
+lc_monetary = 'C'
+lc_numeric = 'C'
+lc_time = 'C'
 default_text_search_config = 'pg_catalog.german'
 dynamic_library_path = '\$libdir'
 local_preload_libraries = ''
@@ -1345,19 +1342,22 @@ synchronize_seqscans = on
 transform_null_equals = off
 exit_on_error = off
 restart_after_crash = on
-include_dir = 'conf.d'
+#include_dir = 'conf.d'
 include_if_exists = 'exists.conf'
-include = 'special.conf'
+#include = 'special.conf'
 ";
 
 # %fullconf generated using
 # sed -e 's/^#//' -e 's/[ \t]*#.*//g' /etc/postgresql/9.3/foo/postgresql.conf | grep '^[a-z]'
 # ... plus quoting of " and $
+# remove/comment data_directory, hba_file, ident_file, external_pid_file
+# lc_* should be 'C'
 
 # Test one particular upgrade (old version, new version)
 sub do_upgrade {
     my $cur = $_[0];
     my $new = $_[1];
+    note "Testing upgrade $cur -> $new";
 
     # Write configuration file and start
     my $datadir = PgCommon::cluster_data_directory $cur, 'main';
@@ -1388,7 +1388,7 @@ sub do_upgrade {
 # create cluster for oldest version
 is ((system "pg_createcluster $MAJORS[0] main >/dev/null"), 0, "pg_createcluster $MAJORS[0] main");
 
-# Loop over all but the latest major version
+# Loop over all but the latest major version, testing N->N+1 upgrades
 my @testversions = sort @MAJORS;
 while ($#testversions) {
     my $cur = shift @testversions;

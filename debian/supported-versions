@@ -111,7 +111,7 @@ debian() {
             /bin/echo -e "9.3"
             ;;
         testing | unstable)
-            /bin/echo -e "9.3"
+            /bin/echo -e "9.4\n9.3"
             ;;
         *)
             echo "supported_versions: WARNING: Unknown Debian release: $1" >&2
@@ -142,16 +142,8 @@ debian_backports() {
 }
 
 pgdg() {
-    case "$1" in
-        testing | unstable)
-            # including beta versions
-            /bin/echo -e "8.4\n9.0\n9.1\n9.2\n9.3"
-            ;;
-        *)
-            # usually no beta versions here
-            /bin/echo -e "8.4\n9.0\n9.1\n9.2\n9.3"
-            ;;
-    esac
+    # including beta versions
+    /bin/echo -e "8.4\n9.0\n9.1\n9.2\n9.4\n9.3"
 }
 
 installed() {
@@ -162,7 +154,7 @@ installed() {
 # main
 
 if [ "${PG_SUPPORTED_VERSIONS:-}" ] ; then
-    SUPPORTED_VERSIONS="$PG_SUPPORTED_VERSIONS"
+    SUPPORTED_VERSIONS=$(echo "$PG_SUPPORTED_VERSIONS" | xargs -n1)
 elif [ -f ${HOME:-}/.pg_supported_versions ] ; then
     SUPPORTED_VERSIONS="$(cat ${HOME:-}/.pg_supported_versions)"
 elif [ -f ${PGSYSCONFDIR:-/etc/postgresql-common}/supported_versions ] ; then
