@@ -1,3 +1,21 @@
+postgresql-common (159) unstable; urgency=low
+
+  * supported-versions: Set 9.4 as default for jessie and unstable.
+  * systemd unit files are now installed to their proper locations.
+  * Install /usr/lib/tmpfiles.d/postgresql.conf.
+  * pgcommon.sh: New shell function module containing get_release and
+    locale_gen. Used by supported-versions and testsuite; also usable by other
+    packages.
+  * pg_ctlcluster, PgCommon.pm: Fix warning on corrupt empty pid files.
+  * pg_ctlcluster: New --stdlog option to be used with --foreground that
+    redirects stderr to our standard log files. Used in postgresql@.service.
+  * pg_ctlcluster: Ignore errors when stat'ing the logfile.
+  * pg_ctlcluster: use strict.
+  * Debconf translation updates, thanks!
+    + da by Joe Dalton. (Closes: #753952)
+
+ -- Christoph Berg <christoph.berg@credativ.de>  Thu, 24 Jul 2014 11:52:57 +0200
+
 postgresql-common (158) experimental; urgency=medium
 
   * supported-versions: Add 9.4 on Debian/unstable and pgapt (9.3 is still
