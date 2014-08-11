@@ -1,3 +1,22 @@
+postgresql-common (160) unstable; urgency=medium
+
+  [ Martin Pitt ]
+  * supported-versions: Set 9.4 as default for Ubuntu 14.10.
+  * debian/maintscripts-functions: Call update-alternatives under C locale to
+    fix parsing for non-English locales. (LP: #1293596)
+  * pg_createcluster: Fix test if specified owner/group ID is numeric. Thanks
+    Sven Berkvens-Matthijsse! (LP: #1329227)
+
+  [ Christoph Berg ]
+  * Use dh-systemd to enable postgresql.service on install. (Closes: #757612)
+  * Set Multi-Arch: foreign in postgresql-common, postgresql-client-common,
+    postgresql-client, and postgresql-doc, and document this in
+    doc/dependencies.{dia,png}. (Closes: #757520)
+  * Update examples in README.Debian for 9.4. (Closes: #756007)
+  * Install README.systemd.
+
+ -- Christoph Berg <christoph.berg@credativ.de>  Mon, 11 Aug 2014 15:39:39 +0200
+
 postgresql-common (159) unstable; urgency=low
 
   * supported-versions: Set 9.4 as default for jessie and unstable.
