@@ -10,7 +10,7 @@ use lib 't';
 use TestLib;
 use PgCommon;
 
-use Test::More tests => 127 * ($#MAJORS+1);
+use Test::More tests => 132 * ($#MAJORS+1);
 
 sub check_major {
     my $v = $_[0];
@@ -25,7 +25,7 @@ sub check_major {
         ok_dir '/var/run/postgresql/', ['.s.PGSQL.5432', '.s.PGSQL.5432.lock', "$v-main.pid"], 
             'Socket and pid file are in /var/run/postgresql/';
     } else {
-        ok_dir '/var/run/postgresql/', ["$v-main.pid"], 'Pid File is in /tmp';
+        ok_dir '/var/run/postgresql/', ["$v-main.pid"], 'Pid File is in /var/run/postgresql/';
     }
 
     # verify that exactly one postmaster is running
@@ -130,7 +130,7 @@ sub check_major {
     is ((exec_as 'root', "pg_ctlcluster $v main start"), 0, 
         'restarting cluster with explicitly configured log file');
     ok -z $default_log, "default log is not used";
-    ok -z $p, "log symlink target is not used";
+    ok !-z $p, "log symlink target is used for startup message";
     my @l = glob ((PgCommon::cluster_data_directory $v, 'main') .  "/pg_log/$v#main.log*");
     is $#l, 0, 'exactly one log file';
     ok (-e $l[0] && ! -z $l[0], 'custom log is actually used');
@@ -297,13 +297,13 @@ tel|2
     }
 
     # OOM score adjustment under Linux: postmaster gets bigger shields for >=
-    # 9.1, but client backends stay at default
+    # 9.0, but client backends stay at default
     my $adj;
     open F, "/proc/$master_pid/oom_score_adj";
     $adj = <F>;
     chomp $adj;
     close F;
-    if ($v >= '9.1' and not $PgCommon::rpm) {
+    if ($v >= '9.0' and not $PgCommon::rpm) {
         cmp_ok $adj, '<=', -500, 'postgres master has OOM killer protection';
     } else {
         is $adj, 0, 'postgres master has no OOM adjustment';
@@ -338,8 +338,21 @@ tel|2
     is ((exec_as 'postgres', "pg_ctlcluster $v main start"), 0, 'starting cluster as postgres works without a log file');
     ok (-e $default_log && ! -z $default_log, 'log file got recreated and used');
 
+    # test pg_renamecluster with a running cluster
+    is ((exec_as 'root', "pg_renamecluster $v main donau"), 0, 'pg_renamecluster works');
+    is_program_out 'postgres', 'psql -tAc "show data_directory"', 0,
+        "/var/lib/postgresql/$v/donau\n", 'data_directory was moved';
+    is ((PgCommon::get_conf_value $v, 'donau', 'postgresql.conf', 'hba_file'),
+        "/etc/postgresql/$v/donau/pg_hba.conf", 'pg_hba.conf location updated');
+    is ((PgCommon::get_conf_value $v, 'donau', 'postgresql.conf', 'ident_file'),
+        "/etc/postgresql/$v/donau/pg_ident.conf", 'pg_ident.conf location updated');
+    #is ((PgCommon::get_conf_value $v, 'donau', 'postgresql.conf', 'external_pid_file'),
+    #    "/var/run/postgresql/$v-donau.pid", 'external_pid_file location updated');
+    #is ((PgCommon::get_conf_value $v, 'donau', 'postgresql.conf', 'stats_temp_directory'),
+    #    "/var/run/postgresql/$v-donau.pg_stat_tmp", 'stats_temp_directory location updated');
+
     # stop server, clean up, check for leftovers
-    ok ((system "pg_dropcluster $v main --stop") == 0, 
+    ok ((system "pg_dropcluster $v donau --stop") == 0,
 	'pg_dropcluster removes cluster');
 
     check_clean;
