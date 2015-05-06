@@ -1,3 +1,27 @@
+postgresql-common (167) unstable; urgency=medium
+
+  [ Christoph Berg ]
+  * pg_conftool: Fix 'remove' operation. Spotted by François Henry, merci!
+    (Closes: #778243)
+  * t/007_pg_conftool.t: Add pg_conftool tests.
+
+  [ Martin Pitt ]
+  * debian/maintscripts-functions: Avoid package installation failure of -9.1
+    due to the pg_basebackup.1 alternative on systems which have both -9.1 and
+    a later version installed in parallel. On those, pg_basebackup.1 will
+    already be in the psql.1.gz group, thus -9.1 must not try to put it back
+    into the postmaster.1.gz group. (LP: #1357682)
+  * Add "default-psql" autopkgtest: Smoketest to verify that installing the
+    "postgresql" metapackage results in a running and working cluster.
+  * debian/maintscripts-functions, configure_cluster(): When running under
+    systemd, do a daemon-reload to re-run the generator and thus create a unit
+    for the newly created cluster.
+  * Move package maintenance to git, update Vcs-* tags accordingly.
+  * Bump Standards-Version to 3.9.6 (no changes necessary).
+  * supported-versions: Add Ubuntu 15.10.
+
+ -- Martin Pitt <mpitt@debian.org>  Wed, 06 May 2015 11:28:26 +0200
+
 postgresql-common (166) unstable; urgency=medium
 
   * postgresql-common: Breaks: systemd (<< 204). postgresql@.service uses
