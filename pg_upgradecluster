@@ -100,12 +100,12 @@ sub adapt_conffiles {
 	if ($c{'stats_block_level'} || $c{'stats_row_level'}) {
 	    deprecate \%c, 'stats_block_level', 'deprecated in favor of track_counts';
 	    deprecate \%c, 'stats_row_level', 'deprecated in favor of track_counts';
-            set 'track_counts', (config_bool $c{'stats_block_level'} || config_bool $c{'stats_row_level'}) ? 'yes' : 'no';
+            set 'track_counts', (config_bool $c{'stats_block_level'} || config_bool $c{'stats_row_level'}) ? 'on' : 'off';
 	}
 
         # archive_command now has to be enabled explicitly
         if ($c{'archive_command'}) {
-            set 'archive_mode', 'yes';
+            set 'archive_mode', 'on';
         }
     }
 
@@ -164,6 +164,18 @@ sub adapt_conffiles {
 
     if ($newversion >= '9.4') {
         deprecate \%c, 'krb_srvname', 'native krb5 authentication deprecated in favor of GSSAPI';
+        # d_s_m_t defaults to 'posix', but that has various problems. Pick a safer variant here
+        unless ($c{dynamic_shared_memory_type}) {
+            set 'dynamic_shared_memory_type', 'mmap';
+        }
+    }
+
+    if ($newversion >= '9.5') {
+        if ($c{checkpoint_segments}) {
+            my $max_wal_size = 16*$c{checkpoint_segments} . 'MB';
+            rename_ \%c, 'checkpoint_segments', 'max_wal_size';
+            set 'max_wal_size', $max_wal_size;
+        }
     }
 }
 
@@ -233,7 +245,8 @@ sub run_parts {
 
 # command line arguments
 
-$newversion = get_newest_version;
+my $newest_version = get_newest_version;
+$newversion = $newest_version;
 
 my $method = 'dump';
 my $link = 0;
@@ -255,6 +268,7 @@ GetOptions ('v|version=s' => \$newversion,
     ) or exit 1;
 
 $method eq 'dump' or $method eq 'upgrade' or error 'method must be "dump" or "upgrade"';
+$link and $method eq 'dump' and error 'cannot use --link with --method=dump';
 
 # untaint
 ($newversion) = $newversion =~ /^(\d+\.\d+)$/;
@@ -279,8 +293,8 @@ $newcluster ||= $cluster; # use old cluster name by default
 my $datadir;
 ($datadir) = $ARGV[2] =~ /(.*)/ if defined $ARGV[2];
 
-error "Cannot upgrade from $version to $newversion. " .
-    "You should invoke pg_upgradecluster on a cluster with an old version."
+error "cluster $version/$cluster is already on version $newversion. " .
+    "(The newest version installed on this system is $newest_version.)"
     if ($version eq $newversion and $cluster eq $newcluster);
 
 error 'specified cluster does not exist' unless cluster_exists $version, $cluster;
