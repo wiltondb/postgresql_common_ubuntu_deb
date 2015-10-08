@@ -1,3 +1,38 @@
+postgresql-common (170) unstable; urgency=medium
+
+  [ Christoph Berg ]
+  * pg_createcluster, pg_dropcluster: When an auto-started cluster is created/
+    dropped by root, notify systemd to update the dependencies of
+    postgresql.service.wants.
+  * pg_dropcluster, pg_renamecluster: Handle stats_temp_directory.
+  * testsuite, pg_virtualenv: Remove the unshare hack, too much trouble.
+  * pg_buildext, pg_virtualenv: Add PG_VIRTUALENV_NEWPID and
+    PG_VIRTUALENV_UNSHARE variables; pg_buildext selects unshare -n by default.
+  * t/025_logging.t: Improve syslog detection in the test environment.
+  * pg_upgradecluster, t/030_errors.t: Unbreak after we changed the old=new
+    error message.
+  * PgCommon.pm: make read_cluster_conf_file read postgresql.auto.conf as well
+    (Closes: #787154)
+  * pg_upgradecluster: Support upgrading tablespaces. (Closes: #772202)
+  * t/TestLib.pm: New function program_ok().
+  * t/040_upgrade.t: Skip testing pg_upgrade with datallowconn = f, it does
+    not support that anymore as of May 2015.
+  * t/170_extensions.t: Catch warning with chkpass >= 9.5.
+  * debian/maintscripts-functions: Unset all locale-specific environment
+    variables when creating the initial database cluster. (Closes: #791526)
+  * Add /var/log/postgresql to /usr/lib/tmpfiles.d/postgresql.conf.
+  * Also set OOMScoreAdjust in postgresql@.service.
+  * pg_ctlcluster: OOM-protect 9.0 as well.
+  * pg_lsclusters: Color online/down clusters green/red.
+  * supported-versions: Accept DEB_PG_SUPPORTED_VERSIONS as well.
+  * Ship /etc/postgresql/ in postgresql-common. (Closes: #801140)
+
+  [ Martin Pitt ]
+  * pg_createcluster: Show the locale selected with --locale instead of the
+    current one. (LP: #1467061)
+
+ -- Christoph Berg <christoph.berg@credativ.de>  Thu, 08 Oct 2015 13:48:26 +0200
+
 postgresql-common (169) unstable; urgency=medium
 
   * t/022_recovery.t: New recovery tests to catch regression in 9.4.2 and

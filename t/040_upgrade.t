@@ -3,6 +3,7 @@
 
 use strict; 
 
+use File::Temp qw/tempdir/;
 use POSIX qw/dup2/;
 use Time::HiRes qw/usleep/;
 
@@ -10,7 +11,7 @@ use lib 't';
 use TestLib;
 use PgCommon;
 
-use Test::More tests => ($#MAJORS == 0) ? 1 : 103 * 3;
+use Test::More tests => ($#MAJORS == 0) ? 1 : 111 * 3;
 
 if ($#MAJORS == 0) {
     pass 'only one major version installed, skipping upgrade tests';
@@ -32,8 +33,11 @@ is ((exec_as 'postgres', 'createuser nobody -D -R -s && createdb -O nobody test 
 is ((exec_as 'nobody', 'psql test -c "CREATE TABLE phone (name varchar(255) PRIMARY KEY, tel int NOT NULL)"'), 
     0, 'create table');
 is ((exec_as 'nobody', 'psql test -c "INSERT INTO phone VALUES (\'Alice\', 2)"'), 0, 'insert Alice into phone table');
-is ((exec_as 'postgres', 'psql template1 -c "UPDATE pg_database SET datallowconn = \'f\' WHERE datname = \'testnc\'"'), 
-    0, 'disallow connection to testnc');
+SKIP: {
+    skip 'datallowconn = f not supported with pg_upgrade', 1 if $upgrade_options =~ /upgrade/;
+    is ((exec_as 'postgres', 'psql template1 -c "UPDATE pg_database SET datallowconn = \'f\' WHERE datname = \'testnc\'"'),
+        0, 'disallow connection to testnc');
+}
 is ((exec_as 'nobody', 'psql testro -c "CREATE TABLE nums (num int NOT NULL); INSERT INTO nums VALUES (1)"'), 0, 'create table in testro');
 SKIP: {
     skip 'read-only not supported with pg_upgrade', 2 if $upgrade_options =~ /upgrade/;
@@ -99,6 +103,15 @@ is_program_out 'nobody', 'psql -U foo -qc "INSERT INTO phone VALUES (\'Bob\', 1)
 # set database option
 is_program_out 'postgres', 'psql -qc "ALTER DATABASE test SET DateStyle = \'ISO, YMD\'"',
     0, '', 'set database parameter';
+
+# create a tablespace
+my $tdir = tempdir (CLEANUP => 1);
+my ($p_uid, $p_gid) = (getpwnam 'postgres')[2,3];
+chown $p_uid, $p_gid, $tdir;
+is_program_out 'postgres', "psql -qc \"CREATE TABLESPACE myts LOCATION '$tdir'\"",
+    0, '', "creating tablespace in $tdir";
+is_program_out 'postgres', "psql -qc 'CREATE TABLE tstab (a int) TABLESPACE myts'",
+    0, '', "creating table in tablespace";
 
 # Check clusters
 like_program_out 'nobody', 'pg_lsclusters -h', 0,
@@ -195,14 +208,15 @@ SKIP: {
     skip 'upgrading databases with datallowcon = false not supported by pg_upgrade', 2 if $upgrade_options =~ /upgrade/;
 
     # Check connection permissions
+    my $testnc_conn = $upgrade_options =~ /upgrade/ ? 't' : 'f';
     is_program_out 'nobody', 'psql -tAc "SELECT datname, datallowconn FROM pg_database ORDER BY datname" template1', 0,
-    'postgres|t
+    "postgres|t
 template0|f
 template1|t
 test|t
-testnc|f
+testnc|$testnc_conn
 testro|t
-', 'dataallowconn values';
+", 'dataallowconn values';
 }
 
 # check ACLs
@@ -227,6 +241,12 @@ is ((exec_as 'nobody', 'psql testro -c "BEGIN READ WRITE; CREATE TABLE test(num 
 # check DB parameter
 is_program_out 'postgres', 'psql -Atc "SHOW DateStyle" test', 0, 'ISO, YMD
 ', 'check database parameter';
+
+# check tablespace
+is_program_out 'postgres', "psql -Atc 'SELECT spcname FROM pg_tablespace ORDER BY spcname'",
+    0, "myts\npg_default\npg_global\n", "check tablespace of upgraded table";
+is_program_out 'postgres', "psql -Atc \"SELECT spcname FROM pg_class c LEFT JOIN pg_tablespace t ON (c.reltablespace = t.oid) WHERE c.relname = 'tstab'\"",
+    0, "myts\n", "check tablespace of upgraded table";
 
 # stop servers, clean up
 is ((system "pg_dropcluster $MAJORS[0] upgr --stop"), 0, 'Dropping original cluster');
