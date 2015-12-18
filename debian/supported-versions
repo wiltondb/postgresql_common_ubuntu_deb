@@ -91,7 +91,7 @@ ubuntu() {
         14.04)
             /bin/echo -e "9.3"
             ;;
-        14.10|15.04|15.10)
+        14.10|15.04|15.10|16.04)
             /bin/echo -e "9.4"
             ;;
         *)
@@ -134,7 +134,7 @@ debian_backports() {
             /bin/echo -e "8.4\n9.1"
             ;;
         7|7.*) # Wheezy
-            /bin/echo -e "9.1"
+            /bin/echo -e "9.1\n9.4"
             ;;
         8|8.*) # Jessie
             /bin/echo -e "9.4"
@@ -152,10 +152,10 @@ debian_backports() {
 pgdg() {
     case $1 in
         testing | unstable)
-            /bin/echo -e "8.4\n9.0\n9.1\n9.2\n9.3\n9.4" # 9.4 default
+            /bin/echo -e "9.1\n9.2\n9.3\n9.4" # 9.4 default
             ;;
         *)
-            /bin/echo -e "8.4\n9.0\n9.1\n9.2\n9.3\n9.4" # 9.4 default
+            /bin/echo -e "9.1\n9.2\n9.3\n9.4" # 9.4 default
             ;;
     esac
 }

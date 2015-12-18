@@ -110,10 +110,10 @@ sub adapt_conffiles {
     }
 
     if ($newversion >= '8.4') {
-        deprecate \%c, 'max_fsm_pages', 'not needed any more';
-        deprecate \%c, 'max_fsm_relations', 'not needed any more';
-        deprecate \%c, 'krb_server_hostname', 'does not exist any more';
-        deprecate \%c, 'krb_realm', 'does not exist any more';
+        deprecate \%c, 'max_fsm_pages', 'not needed anymore';
+        deprecate \%c, 'max_fsm_relations', 'not needed anymore';
+        deprecate \%c, 'krb_server_hostname', 'does not exist anymore';
+        deprecate \%c, 'krb_realm', 'does not exist anymore';
         rename_ \%c, 'explain_pretty_print', 'debug_pretty_print';
 
 	# "ident sameuser" -> "ident"
@@ -132,14 +132,14 @@ sub adapt_conffiles {
     }
 
     if ($newversion >= '9.0') {
-	deprecate \%c, 'add_missing_from', 'does not exist any more';
-	deprecate \%c, 'regex_flavor', 'does not exist any more';
+	deprecate \%c, 'add_missing_from', 'does not exist anymore';
+	deprecate \%c, 'regex_flavor', 'does not exist anymore';
     }
 
     if ($newversion >= '9.2') {
-	deprecate \%c, 'wal_sender_delay', 'does not exist any more';
-	deprecate \%c, 'silent_mode', 'does not exist any more';
-	deprecate \%c, 'custom_variable_classes', 'does not exist any more';
+	deprecate \%c, 'wal_sender_delay', 'does not exist anymore';
+	deprecate \%c, 'silent_mode', 'does not exist anymore';
+	deprecate \%c, 'custom_variable_classes', 'does not exist anymore';
 
         # SSL certificate paths have an explicit option now, older versions use
         # a symlink
@@ -176,6 +176,7 @@ sub adapt_conffiles {
             rename_ \%c, 'checkpoint_segments', 'max_wal_size';
             set 'max_wal_size', $max_wal_size;
         }
+        deprecate \%c, 'ssl_renegotiation_limit', 'does not exist anymore';
     }
 }
 
@@ -252,7 +253,7 @@ my $method = 'dump';
 my $link = 0;
 
 my ($locale, $lc_collate, $lc_ctype, $lc_messages, $lc_monetary, $lc_numeric,
-    $lc_time, $logfile);
+    $lc_time, $logfile, $old_bindir);
 GetOptions ('v|version=s' => \$newversion,
 	    'locale=s' => \$locale,
 	    'lc-collate=s' => \$lc_collate,
@@ -265,6 +266,7 @@ GetOptions ('v|version=s' => \$newversion,
 	    'm|method=s' => \$method,
 	    'k|link' => \$link,
             'rename=s' => \$newcluster,
+            'old-bindir=s' => \$old_bindir,
     ) or exit 1;
 
 $method eq 'dump' or $method eq 'upgrade' or error 'method must be "dump" or "upgrade"';
@@ -280,6 +282,7 @@ $link and $method eq 'dump' and error 'cannot use --link with --method=dump';
 ($lc_numeric) = $lc_numeric =~ /^([\w@._-]+)$/ if $lc_numeric;
 ($lc_time) = $lc_time =~ /^([\w@._-]+)$/ if $lc_time;
 ($logfile) = $logfile =~ /^([^\n]+)$/ if $logfile;
+($old_bindir) = $old_bindir =~ /^(\/.*)$/ if $old_bindir;
 
 if ($#ARGV < 1) {
     print "Usage: $0 [OPTIONS] <old version> <cluster name> [<new data directory>]\n";
@@ -328,7 +331,9 @@ if ($method eq 'dump' or ($method eq 'upgrade' and not $info{'running'})) {
     $old_hba_modified = 1;
 
     print "Restarting old cluster with restricted connections...\n";
-    my @argv = ('pg_ctlcluster', $version, $cluster, 'start');
+    my @argv = ('pg_ctlcluster',
+        ($old_bindir ? ("--bindir=$old_bindir") : ()),
+        $version, $cluster, 'start');
     error "Could not restart old cluster" if system @argv;
 
     get_encoding $version, $cluster unless ($encoding); # if the cluster was not running before, get encoding now
@@ -539,7 +544,7 @@ if (!fork) {
 	    print 'Analyzing database ', $db, "...\n";
 	    (system $psql, '-h', $newsocket, '-p', $newinfo{'port'}, '-q', 
 		'-d', $db, '-c', 'ANALYZE') == 0 or
-		error 'Could not ANALZYE database';
+		error 'Could not ANALYZE database';
 
 	    unless (${$databases{$db}}[0]) {
 		print "Disabling access to database $db\n";
@@ -566,7 +571,7 @@ if (!fork) {
 	my $pg_upgrade = get_program_path 'pg_upgrade', $newversion;
         $pg_upgrade or error "pg_upgrade $newversion not found";
 	my @argv = ($pg_upgrade,
-		 '-b', "$PgCommon::binroot$version/bin",
+		 '-b', ($old_bindir || "$PgCommon::binroot$version/bin"),
 		 '-B', "$PgCommon::binroot$newversion/bin",
 		 '-d', $info{'pgdata'},
 		 '-D', $newinfo{'pgdata'},
@@ -801,6 +806,10 @@ L<pg_upgrade(1)> for details.
 =item B<--rename> I<new cluster name>
 
 Use a different name for the upgraded cluster.
+
+=item B<--old-bindir> I<directory>
+
+Passed to B<pg_upgrade>.
 
 =back
 

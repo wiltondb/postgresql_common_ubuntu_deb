@@ -1,3 +1,36 @@
+postgresql-common (171) unstable; urgency=medium
+
+  [ Christoph Berg ]
+  * pgdg: Deprecate 8.4 and 9.0.
+  * Enable 9.4 for wheezy-backports.
+  * pg_createcluster: Fix stats_temp_directory handling on 8.3, thanks to
+    Marco Nenciarini for the inital patch.
+  * pg_createcluster: Mute verbose chattr output.
+  * pg_conftool: Don't quote output in '-s'hort mode.
+  * debian/maintscripts-functions: If the catalog version changes in
+    devel/alpha versions, save a minimal copy of the old version binaries in
+    the preinst to enable using pg_upgrade. Use debconf in the postinst to
+    instruct the user how to proceed with the upgrade.
+  * pg_buildext: Replace multiple occurrences of PGVERSION on the same line,
+    and implement replacing for debian/tests/control.in.
+  * t/015_start_stop.t: Validate pg_ctlcluster/systemctl exit codes.
+  * pg_ctlcluster: Redirect requests to systemd when invoked as root and no
+    extra pg_ctl or postgres options are given.
+    Trying to start already running clusters clusters will return 0 now
+    (was 2 in the native implementation).
+  * pg_createcluster, pg_renamecluster: Warn on cluster names with dashes.
+  * pg_upgradecluster: Deprecate ssl_renegotiation_limit in 9.5.
+
+  [ Martin Pitt ]
+  * pg_upgradecluster: Fix "ANALZYE" typo.
+  * debian/supported-versions: Add Ubuntu 16.04.
+  * Update Turkish debconf translations, thanks Atila KOÇ!
+    (Closes: #799274)
+  * t/020_create_sql_remove.t: Skip postmaster OOM killer adjustment when
+    running in a container, as these often have restricted privileges.
+
+ -- Christoph Berg <christoph.berg@credativ.de>  Fri, 18 Dec 2015 16:22:37 +0100
+
 postgresql-common (170) unstable; urgency=medium
 
   [ Christoph Berg ]
