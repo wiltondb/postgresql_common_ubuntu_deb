@@ -162,8 +162,10 @@ preinst_check_catversion()
         return ;;
     esac
 
-    OLD_CATVERSION="$(cat /usr/share/postgresql/$MAJOR_VER/catalog_version || :)"
-    [ -z "$OLD_CATVERSION" ] && return # shouldn't happen, but bail out gracefully
+    CATFILE="/usr/share/postgresql/$MAJOR_VER/catalog_version"
+    [ -f "$CATFILE" ] || return 0 # file introduced in 9.6
+    OLD_CATVERSION="$(cat $CATFILE)"
+    [ -z "$OLD_CATVERSION" ] && return
 
     [ "$OLD_CATVERSION" = "$NEW_CATVERSION" ] && return # no change, nothing to do
 
@@ -223,11 +225,11 @@ postinst_check_catversion()
 
         # tell the user about it
 	cat <<-EOF
-	Cluster $MAJOR_VER $cluster needs upgrading:
-	# pg_renamecluster ${MAJOR_VER} ${cluster} ${cluster}.old
-	# pg_upgradecluster ${MAJOR_VER} ${cluster}.old --rename ${cluster} -m upgrade --old-bindir=${VARTMPDIR}/bin
-	# pg_dropcluster ${MAJOR_VER} ${cluster}.old
-	# rm -rf ${VARTMPDIR}
+	Cluster $MAJOR_VER $cluster needs upgrading due to catalog version change:
+	  pg_renamecluster ${MAJOR_VER} ${cluster} ${cluster}.old
+	  pg_upgradecluster ${MAJOR_VER} ${cluster}.old --rename ${cluster} -m upgrade --old-bindir=${VARTMPDIR}/bin
+	  pg_dropcluster ${MAJOR_VER} ${cluster}.old
+	  rm -rf ${VARTMPDIR}
 	EOF
         db_fset postgresql-common/catversion-bump seen false
         db_subst postgresql-common/catversion-bump version $MAJOR_VER
