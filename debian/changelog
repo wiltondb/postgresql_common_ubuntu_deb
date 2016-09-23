@@ -1,3 +1,30 @@
+postgresql-common (176) unstable; urgency=medium
+
+  * Team upload.
+  * Bump default PostgreSQL server version to 9.6.
+  * Use C.UTF-8 instead of C when the initial main cluster is created and no
+    locale is configured explicitly as system default. (Closes: #790507)
+  * Support "NN" major version numbers, next version will be PostgreSQL 10.
+  * debian/postgresql-common.templates: Properly mark not-to-be-translated
+    shell code-only chunk as such using flag:translate. Thanks to Rhonda for
+    the pointer! (See: #820756, #832282)
+  * testsuite: Run with umask 077 only by default.
+  * t/025_logging.t: Fix tests when grep thinks syslog is a binary file.
+  * t/031_errors_disk_full.t: Raise tmpfs size to account for larger cluster
+    footprint observed on ppc64el.
+  * t/032_ssl_key_permissions.t: Skip tests on 9.0 and earlier.
+  * pg_createcluster, t/025_logging.t: Skip logging_collector for 8.2.
+  * Ship /etc/postgresql-common/supported_versions even in non-backport
+    packages. (Closes: #808353)
+  * pg_createcluster: Error out if provided log file is a directory.
+    (Closes: #791556)
+  * pg_upgradecluster: Set dynamic_shared_memory_type from the new
+    postgresql.conf instead of defaulting to mmap. (Closes: #823209)
+  * pg_upgradecluster: Use data checksums in the new cluster if the old uses
+    them. (Closes: #830228)
+
+ -- Christoph Berg <christoph.berg@credativ.de>  Fri, 23 Sep 2016 12:32:16 +0200
+
 postgresql-common (175) unstable; urgency=medium
 
   * pg_createcluster, createcluster.conf: Set cluster_name on 9.5+.

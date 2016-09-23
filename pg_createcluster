@@ -282,7 +282,7 @@ if ($ownergid) {
 
 error 'clusters must not be owned by root' unless $owneruid && $ownergid;
 
-($version) = $ARGV[0] =~ /^(\d+\.\d+)$/;
+($version) = $ARGV[0] =~ /^(\d+\.?\d+)$/;
 error "invalid version '$ARGV[0]'" unless defined $version;
 ($cluster) = $ARGV[1] =~ /^([-.\w]+)$/;
 error "invalid cluster name '$ARGV[1]'" unless defined $cluster;
@@ -431,6 +431,7 @@ if (! -d '/var/log/postgresql') {
     chown 0, $postgres_user[3], '/var/log/postgresql';
 }
 $real_logfile = $custom_logfile || "/var/log/postgresql/postgresql-$version-$cluster.log";
+error "logfile $real_logfile is a directory, not a file" if (-d $real_logfile);
 if (! -e $real_logfile) {
     open L, ">>$real_logfile" or error "could not create log file $real_logfile";
     close L;
@@ -573,6 +574,7 @@ if ($socketdir eq '/var/run/postgresql') {
 # handle other createcluster.conf parameters
 foreach my $guc (sort keys %defaultconf) {
     next if $guc =~ /^(create_main_cluster|start_conf|data_directory|xlogdir|initdb_options|ssl)$/;
+    next if $guc eq 'logging_collector' and $version < 8.3;
     next if $guc eq 'cluster_name' and $version < 9.5;
     my $val = replace_v_c ($defaultconf{$guc}, $version, $cluster);
     PgCommon::set_conf_value $version, $cluster, 'postgresql.conf', $guc, $val;
