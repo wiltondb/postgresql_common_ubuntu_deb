@@ -99,7 +99,7 @@ sub ps {
 }
 
 # Return array of pids that match the given command name (we require a leading
-# slash so the postmaster childs are filtered out)
+# slash so the postgres children are filtered out)
 sub pidof {
     my $prg = shift;
     open F, '-|', 'ps', 'h', '-C', $prg, '-o', 'pid,cmd' or die "open: $!";
@@ -221,11 +221,11 @@ sub unlike_program_out {
 }
 
 # Check that all PostgreSQL related directories are empty and no
-# postmaster processes are running. Should be called at the end
+# postgres processes are running. Should be called at the end
 # of all tests. Does 10 tests.
 sub check_clean {
     is (`pg_lsclusters -h`, '', 'No existing clusters');
-    is ((ps 'postmaster'), '', 'No postmaster processes left behind');
+    pass ''; # was postmaster
     is ((ps 'postgres'), '', 'No postgres processes left behind');
     pass ''; # this was pg_autovacuum in the past, which is obsolete
 
@@ -242,7 +242,7 @@ sub check_clean {
     # complain about missing directories
     ok_dir '/var/log/postgresql', [], "No files in /var/log/postgresql left behind";
 
-    is_program_out 0, 'netstat -avptn | grep ":543[2-9]\\b"', 1, '',
+    is_program_out 0, 'netstat -avptn 2>/dev/null | grep ":543[2-9]\\b"', 1, '',
 	'PostgreSQL TCP ports are closed';
 }
 

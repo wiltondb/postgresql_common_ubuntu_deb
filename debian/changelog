@@ -1,3 +1,27 @@
+postgresql-common (178) unstable; urgency=medium
+
+  [ Christoph Berg ]
+  * pg_buildext: Don't ask pg_virtualenv for a new network namespace by
+    default.
+  * postgresql-all: New meta package depending on all server packages in all
+    supported versions. Intended to be used for installing test dependencies.
+  * pg_upgradecluster: Properly upgrade databases with non-login role owners.
+    (Closes: #614374, #838812)
+  * pg_upgradecluster, pg_renamecluster: Update cluster_name.
+  * Rebuild upgrades libreadline to 7 in unstable. (Closes: #845356)
+  * Replace most occurrences of "postmaster" by "postgres". Notable leftover
+    is the postmaster.1.gz leader of the manpages alternatives group.
+  * pg_ctlcluster, t/020_create_sql_remove.t: Protect against symlink in
+    /var/log/postgresql/ allowing the creation of arbitrary files elsewhere.
+    Discovered by Dawid Golunski, thanks!
+
+  [ Martin Pitt ]
+  * debian/supported-versions: Add Ubuntu 17.04, drop EOLed releases.
+  * t/TestLib.pm, check_clean(): Quiesce stderr of netstat, which shows a "Not
+    all processes could be identified" warning in unprivileged containers.
+
+ -- Christoph Berg <myon@debian.org>  Tue, 20 Dec 2016 17:11:15 +0100
+
 postgresql-common (177) unstable; urgency=medium
 
   [ Martin Pitt ]
