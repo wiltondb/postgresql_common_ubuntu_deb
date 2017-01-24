@@ -1,3 +1,20 @@
+postgresql-common (179) unstable; urgency=medium
+
+  * Catch all pg_ctl output by redirecting it to /var/log/postgresql.
+    (Closes: #830485)
+  * Dump locale environment variables if setlocale fails.
+    (Closes: #848869)
+  * Set default log_line_prefix to '%m [%p] %q%u@%d ' to match upstream
+    moving to '%m [%p] ' in PostgreSQL 10.
+  * Support include_dir in read_conf_file. Patch by Andreas Dewes, thanks!
+  * Support adding include directives to the new postgresql.conf from
+    createcluster.conf; harness directives with an "add_" prefix, e.g.
+    "add_include_dir".
+  * Import new apt.postgresql.org key.
+  * Support 9.6 for jessie-backports.
+
+ -- Christoph Berg <myon@debian.org>  Tue, 24 Jan 2017 23:03:12 +0100
+
 postgresql-common (178) unstable; urgency=medium
 
   [ Christoph Berg ]
@@ -13,7 +30,7 @@ postgresql-common (178) unstable; urgency=medium
     is the postmaster.1.gz leader of the manpages alternatives group.
   * pg_ctlcluster, t/020_create_sql_remove.t: Protect against symlink in
     /var/log/postgresql/ allowing the creation of arbitrary files elsewhere.
-    Discovered by Dawid Golunski, thanks!
+    Discovered by Dawid Golunski, thanks! (CVE-2016-1255)
 
   [ Martin Pitt ]
   * debian/supported-versions: Add Ubuntu 17.04, drop EOLed releases.
