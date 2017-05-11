@@ -102,7 +102,7 @@ sub config_bool {
 sub quote_conf_value ($) {
     my $value = shift;
     return $value if ($value =~ /^-?[\d.]+$/); # integer or float
-    return $value if ($value =~ /^\w+$/); # plain word
+    return $value if ($value =~ m{^[[:alpha:]][[:alnum:]._:/-]*$}); # plain word (UNQUOTED_STRING in guc-file.l)
     $value =~ s/'/''/g; # else quote it
     return "'$value'";
 }
@@ -165,7 +165,7 @@ sub read_conf_file {
                 $v =~ s/\\(.)/$1/g;
                 $v =~ s/''/'/g;
                 $conf{$k} = $v;
-            } elsif (/^\s*([a-zA-Z0-9_.-]+)\s*(?:=|\s)\s*(-?[\w.]+)\s*(?:#.*)?$/i) {
+            } elsif (m{^\s*([a-zA-Z0-9_.-]+)\s*(?:=|\s)\s*(-?[[:alnum:]][[:alnum:]._:/-]*)\s*(?:\#.*)?$}i) {
                 # simple value
                 my $v = $2;
                 my $k = $1;
@@ -173,7 +173,7 @@ sub read_conf_file {
                 $conf{$k} = $v;
             } else {
                 chomp;
-                error "Invalid line $. in $config_path: »$_«";
+                error "invalid line $. in $config_path: $_";
             }
         }
         close F;
@@ -614,21 +614,22 @@ sub check_pidfile_running {
 # Arguments: <version> <cluster name>
 # Returns: information hash (keys: pgdata, port, running, logfile [unless it
 #          has a custom one], configdir, owneruid, ownergid, socketdir,
-#          statstempdir)
+#          config->postgresql.conf)
 sub cluster_info {
     my ($v, $c) = @_;
     error 'cluster_info must be called with <version> <cluster> arguments' unless ($v and $c);
 
     my %result;
     $result{'configdir'} = "$confroot/$v/$c";
-    error 'cluster_info called on non-existing cluster $v $c' unless (-e "$result{configdir}/postgresql.conf");
+    error "cluster_info called on non-existing cluster $v $c"
+        unless (-e "$result{configdir}/postgresql.conf");
     $result{'configuid'} = (stat "$result{configdir}/postgresql.conf")[4];
 
     my %postgresql_conf = read_cluster_conf_file $v, $c, 'postgresql.conf';
+    $result{'config'} = \%postgresql_conf;
     $result{'pgdata'} = cluster_data_directory $v, $c, \%postgresql_conf;
     $result{'port'} = $postgresql_conf{'port'} || $defaultport;
     $result{'socketdir'} = get_cluster_socketdir  $v, $c;
-    $result{'statstempdir'} = $postgresql_conf{'stats_temp_directory'};
 
     # if we can determine the running status with the pid file, prefer that
     if ($postgresql_conf{'external_pid_file'} &&
@@ -645,7 +646,7 @@ sub cluster_info {
     if ($result{'pgdata'}) {
         ($result{'owneruid'}, $result{'ownergid'}) =
             (stat $result{'pgdata'})[4,5];
-        $result{'recovery'} = -e "$result{'pgdata'}/recovery.conf";
+        $result{'recovery'} = 1 if (-e "$result{'pgdata'}/recovery.conf");
     }
     $result{'start'} = get_cluster_start_conf $v, $c;
 
@@ -656,16 +657,6 @@ sub cluster_info {
     } else {
         $result{'logfile'} = "/var/log/postgresql/postgresql-$v-$c.log";
     }
-    $result{logging_collector} = $postgresql_conf{logging_collector};
-    $result{log_destination} = $postgresql_conf{log_destination};
-    $result{log_directory} = $postgresql_conf{log_directory};
-    $result{log_filename} = $postgresql_conf{log_filename};
-
-    # autovacuum defaults to on since 8.3
-    $result{'avac_enable'} = config_bool $postgresql_conf{'autovacuum'} || ($v >= '8.3');
-
-    # pg_upgradecluster wants to peek at dsmt in the new config
-    $result{dynamic_shared_memory_type} = $postgresql_conf{dynamic_shared_memory_type};
 
     return %result;
 }
