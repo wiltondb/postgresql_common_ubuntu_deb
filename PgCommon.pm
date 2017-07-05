@@ -102,7 +102,7 @@ sub config_bool {
 sub quote_conf_value ($) {
     my $value = shift;
     return $value if ($value =~ /^-?[\d.]+$/); # integer or float
-    return $value if ($value =~ m{^[[:alpha:]][[:alnum:]._:/-]*$}); # plain word (UNQUOTED_STRING in guc-file.l)
+    return $value if ($value =~ /^\w+$/); # plain word
     $value =~ s/'/''/g; # else quote it
     return "'$value'";
 }
@@ -472,8 +472,6 @@ sub cluster_port_running {
 # Arguments: <version> <cluster>
 # Returns: auto | manual | disabled
 sub get_cluster_start_conf {
-    # start.conf setting
-    my $start = 'auto';
     my $start_conf = "$confroot/$_[0]/$_[1]/start.conf";
     if (-e $start_conf) {
 	open F, $start_conf or error "Could not open $start_conf: $!";
@@ -482,16 +480,13 @@ sub get_cluster_start_conf {
 	    s/^\s*//;
 	    s/\s*$//;
 	    next unless $_;
-	    $start = $_;
-	    last;
+            close F;
+            return $1 if (/^(auto|manual|disabled)/);
+            error "Invalid mode in $start_conf, must be one of auto, manual, disabled";
 	}
 	close F;
-
-	error 'Invalid mode in start.conf' unless $start eq 'auto' ||
-	    $start eq 'manual' || $start eq 'disabled';
     }
-
-    return $start;
+    return 'auto'; # default
 }
 
 # Change start.conf setting.
@@ -613,7 +608,7 @@ sub check_pidfile_running {
 # Return a hash with information about a specific cluster (which needs to exist).
 # Arguments: <version> <cluster name>
 # Returns: information hash (keys: pgdata, port, running, logfile [unless it
-#          has a custom one], configdir, owneruid, ownergid, socketdir,
+#          has a custom one], configdir, owneruid, ownergid, waldir, socketdir,
 #          config->postgresql.conf)
 sub cluster_info {
     my ($v, $c) = @_;
@@ -647,6 +642,10 @@ sub cluster_info {
         ($result{'owneruid'}, $result{'ownergid'}) =
             (stat $result{'pgdata'})[4,5];
         $result{'recovery'} = 1 if (-e "$result{'pgdata'}/recovery.conf");
+        my $waldirname = $v >= 10 ? 'pg_wal' : 'pg_xlog';
+        if (-l "$result{pgdata}/$waldirname") { # custom wal directory
+            ($result{waldir}) = readlink("$result{pgdata}/$waldirname") =~ /(.*)/; # untaint
+        }
     }
     $result{'start'} = get_cluster_start_conf $v, $c;
 
@@ -661,7 +660,7 @@ sub cluster_info {
     return %result;
 }
 
-# Return an array of all available PostgreSQL versions
+# Return an array of all available psql versions
 sub get_versions {
     my @versions = ();
     my $dir = $binroot;
@@ -677,14 +676,14 @@ sub get_versions {
         }
         closedir D;
     }
-    return @versions;
+    return sort { $a <=> $b } @versions;
 }
 
 # Return the newest available version
 sub get_newest_version {
-    my $newest = 0;
-    map { $newest = $_ if $newest < $_ } get_versions;
-    return $newest;
+    my @versions = get_versions;
+    return undef unless (@versions);
+    return $versions[-1];
 }
 
 # Check whether a version exists
@@ -708,7 +707,7 @@ sub get_version_clusters {
         }
         closedir D;
     }
-    return @clusters;
+    return sort @clusters;
 }
 
 # Check if a cluster exists.
@@ -778,14 +777,16 @@ sub user_cluster_map {
     my $homemapfile = $home . '/.postgresqlrc';
     if (open MAP, $homemapfile) {
 	while (<MAP>) {
-	    s/(.*?)#.*/$1/;
+	    s/#.*//;
 	    next if /^\s*$/;
 	    my ($v,$c,$db) = split;
 	    if (!version_exists $v) {
-		error "$homemapfile line $.: version $v does not exist";
+                print "Warning: $homemapfile line $.: version $v does not exist\n";
+                next;
 	    }
 	    if (!cluster_exists $v, $c and $c !~ /^(\S+):(\d*)$/) {
-		error "$homemapfile line $.: cluster $v/$c does not exist";
+                print "Warning: $homemapfile line $.: cluster $v/$c does not exist\n";
+                next;
 	    }
 	    if ($db) {
 		close MAP;
@@ -801,7 +802,7 @@ sub user_cluster_map {
     # check global map file
     if (open MAP, $mapfile) {
         while (<MAP>) {
-            s/(.*?)#.*/$1/;
+            s/#.*//;
             next if /^\s*$/;
             my ($u,$g,$v,$c,$db) = split;
             if (!$db) {
@@ -809,10 +810,12 @@ sub user_cluster_map {
                 next;
             }
 	    if (!version_exists $v) {
-		error "$mapfile line $.: version $v does not exist";
+                print "Warning: $mapfile line $.: version $v does not exist\n";
+                next;
 	    }
 	    if (!cluster_exists $v, $c and $c !~ /^(\S+):(\d*)$/) {
-		error "$mapfile line $.: cluster $v/$c does not exist";
+                print "Warning: $mapfile line $.: cluster $v/$c does not exist\n";
+                next;
 	    }
             if (($u eq "*" || $u eq $user) && ($g eq "*" || $g eq $group)) {
                 close MAP;
@@ -930,13 +933,13 @@ sub get_db_locales {
     open PSQL, '-|', $psql, '-h', $socketdir, '-p', $port, '-Atc',
         'SHOW lc_ctype', $db or
         die "Internal error: could not call $psql to determine db lc_ctype: $!";
-    my $out = <PSQL>;
+    my $out = <PSQL> // error 'could not determine db lc_ctype';
     close PSQL;
     ($ctype) = $out =~ /^([\w.\@-]+)$/; # untaint
     open PSQL, '-|', $psql, '-h', $socketdir, '-p', $port, '-Atc',
         'SHOW lc_collate', $db or
         die "Internal error: could not call $psql to determine db lc_collate: $!";
-    $out = <PSQL>;
+    $out = <PSQL> // error 'could not determine db lc_collate';
     close PSQL;
     ($collate) = $out =~ /^([\w.\@-]+)$/; # untaint
     $> = $orig_euid;

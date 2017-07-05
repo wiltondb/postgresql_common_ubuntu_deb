@@ -21,9 +21,11 @@ use Getopt::Long;
 # option handling
 my $no_header;
 my $json;
+my $start_conf;
 exit 1 unless GetOptions (
     'h|no-header' => \$no_header,
     'j|json' => \$json,
+    's|start-conf' => \$start_conf,
 );
 
 my (@versions, $ls_cluster);
@@ -34,7 +36,7 @@ if (@ARGV == 1 and $ARGV[0] =~ m{^(\d+(?:\.\d+)?)[-/]([-.\w]+)$}) {
     $ARGV[0] =~ /^(\d+(?:\.\d+)?)$/ or error "Invalid version number \"$ARGV[0]\"";
     push @versions, $1;
 } else {
-    @versions = sort { $a <=> $b } (get_versions());
+    @versions = get_versions();
 }
 if (@ARGV >= 2 and $ARGV[1] =~ /^([-.\w]+)$/) {
     $ls_cluster = $1;
@@ -49,8 +51,13 @@ my $jsoninfo = [];
 foreach my $v (@versions) {
     my $pg_log = $v >= 10 ? 'log' : 'pg_log'; # log directory in PGDATA changed in PG 10
     my @clusters = $ls_cluster ? $ls_cluster : get_version_clusters $v;
-    foreach my $c (sort @clusters) {
+    foreach my $c (@clusters) {
         my %info = cluster_info $v, $c;
+
+        my $status = $info{'running'} ? "online" : "down";
+        $status .= ",recovery" if ($info{'recovery'});
+        $status .= ",$info{start}" if ($start_conf);
+
         my $logfile = $info{logfile}; # default logfile in /var/log/postgresql
         if (config_bool ($info{config}->{logging_collector})) {
             my $path = $info{config}->{log_directory} || $pg_log;
@@ -63,8 +70,7 @@ foreach my $v (@versions) {
         $csvlog =~ s/(?:\.log)?$/.csv/;
         $destination =~ s/csvlog/$csvlog/;
 
-        push @lines, [$v, $c, $info{'port'},
-            ($info{'running'} ? "online" : "down") . ($info{'recovery'} ? ",recovery" : ""),
+        push @lines, [$v, $c, $info{'port'}, $status,
             defined $info{'owneruid'} ? (getpwuid $info{'owneruid'})[0] : '<unknown>',
             $info{'pgdata'} || '<not set>', $destination];
         $info{version} = $v;
@@ -94,16 +100,13 @@ my $color = -t 1; # color output if stdout is a terminal
 my $fmtstring = join ' ', map { "%-${_}s" } @colwidth;
 
 foreach my $line (@lines) {
-    if ($color and $line->[3] =~ /online/) {
-        print "\033[32m"; # green
-    } elsif ($color and $line->[3] =~ /down/) {
-        print "\033[31m"; # red
+    if ($color and $line->[0] ne 'Ver') { # don't color header
+        printf "\033[%dm$fmtstring\033[0m\n",
+            ($line->[3] =~ /^online/ ? 32 : 31), # green, red
+            @$line;
+    } else {
+        printf "$fmtstring\n", @$line;
     }
-    printf "$fmtstring\n", @$line;
-}
-
-if ($color) {
-    print "\033[0m"; # reset terminal
 }
 
 __END__
@@ -133,6 +136,10 @@ Do not print the column header line.
 
 Output information in JSON format. Needs JSON.pm installed.
 (Debian package: libjson-perl)
+
+=item B<-s>, B<--start-conf>
+
+Include F<start.conf> information in status column.
 
 =back
 
