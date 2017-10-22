@@ -127,8 +127,6 @@ sub read_conf_file {
         return "$parent_path/$path";
     }
 
-    return %conf unless (-e $config_path);
-
     if (open F, $config_path) {
         while (<F>) {
             if (/^\s*(?:#.*)?$/) {
@@ -177,8 +175,6 @@ sub read_conf_file {
             }
         }
         close F;
-    } else {
-        error "could not read $config_path: $!";
     }
 
     return %conf;
@@ -616,13 +612,12 @@ sub cluster_info {
 
     my %result;
     $result{'configdir'} = "$confroot/$v/$c";
-    error "cluster_info called on non-existing cluster $v $c"
-        unless (-e "$result{configdir}/postgresql.conf");
     $result{'configuid'} = (stat "$result{configdir}/postgresql.conf")[4];
 
     my %postgresql_conf = read_cluster_conf_file $v, $c, 'postgresql.conf';
     $result{'config'} = \%postgresql_conf;
     $result{'pgdata'} = cluster_data_directory $v, $c, \%postgresql_conf;
+    return %result unless (keys %postgresql_conf);
     $result{'port'} = $postgresql_conf{'port'} || $defaultport;
     $result{'socketdir'} = get_cluster_socketdir  $v, $c;
 
@@ -701,7 +696,8 @@ sub get_version_clusters {
         while (defined ($entry = readdir D)) {
             next if $entry eq '.' || $entry eq '..';
 	    ($entry) = $entry =~ /^(.*)$/; # untaint
-            if (-r $vdir.$entry.'/postgresql.conf') {
+            my $conf = "$vdir$entry/postgresql.conf";
+            if (-e $conf or -l $conf) { # existing file, or dead symlink
                 push @clusters, $entry;
             }
         }
@@ -899,7 +895,7 @@ sub get_db_encoding {
     $ENV{'LC_ALL'} = 'C';
     my $orig_euid = $>;
     $> = (stat (cluster_data_directory $version, $cluster))[4];
-    open PSQL, '-|', $psql, '-h', $socketdir, '-p', $port, '-Atc',
+    open PSQL, '-|', $psql, '-h', $socketdir, '-p', $port, '-AXtc',
         'select getdatabaseencoding()', $db or
         die "Internal error: could not call $psql to determine db encoding: $!";
     my $out = <PSQL>;
@@ -925,18 +921,18 @@ sub get_db_locales {
     return undef unless ($port && $socketdir && $psql);
     my ($ctype, $collate);
 
-    # try to swich to cluster owner
+    # try to switch to cluster owner
     prepare_exec 'LC_ALL';
     $ENV{'LC_ALL'} = 'C';
     my $orig_euid = $>;
     $> = (stat (cluster_data_directory $version, $cluster))[4];
-    open PSQL, '-|', $psql, '-h', $socketdir, '-p', $port, '-Atc',
+    open PSQL, '-|', $psql, '-h', $socketdir, '-p', $port, '-AXtc',
         'SHOW lc_ctype', $db or
         die "Internal error: could not call $psql to determine db lc_ctype: $!";
     my $out = <PSQL> // error 'could not determine db lc_ctype';
     close PSQL;
     ($ctype) = $out =~ /^([\w.\@-]+)$/; # untaint
-    open PSQL, '-|', $psql, '-h', $socketdir, '-p', $port, '-Atc',
+    open PSQL, '-|', $psql, '-h', $socketdir, '-p', $port, '-AXtc',
         'SHOW lc_collate', $db or
         die "Internal error: could not call $psql to determine db lc_collate: $!";
     $out = <PSQL> // error 'could not determine db lc_collate';
@@ -1033,7 +1029,7 @@ sub get_cluster_databases {
 
     my @dbs;
     my @fields;
-    if (open PSQL, '-|', $psql, '-h', $socketdir, '-p', $port, '-Atl') {
+    if (open PSQL, '-|', $psql, '-h', $socketdir, '-p', $port, '-AXtl') {
         while (<PSQL>) {
             chomp;
             @fields = split '\|';
