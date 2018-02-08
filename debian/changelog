@@ -1,3 +1,21 @@
+postgresql-common (190) unstable; urgency=medium
+
+  * Move packaging repository to salsa.debian.org
+  * pg_lsclusters: Add --help.
+  * pg_virtualenv: Error out if no server packages are installed.
+  * postgresql-common recommends e2fsprogs, we are using chattr in
+    pg_createcluster. (Closes: #887251)
+  * PgCommon.pm: Fix include directives parser, spotted by ironhalik, thanks!
+  * postgresql@.service: Set Timeoutstart=0, which is the same as infinity,
+    but works on older systemd versions as well.
+  * Rewrite architecture.html as README.md.
+  * t/006_next_free_port.t: Drop -q argument from netcat, nmap-ncat.rpm
+    doesn't have it.
+  * t/032_ssl_key_permissions.t: Adjust for 9.4 in oldstable which still has
+    the old permissions check.
+
+ -- Christoph Berg <christoph.berg@credativ.de>  Thu, 08 Feb 2018 13:26:44 +0100
+
 postgresql-common (189) unstable; urgency=medium
 
   [ Chris Lamb ]

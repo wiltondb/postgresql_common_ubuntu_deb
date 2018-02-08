@@ -28,7 +28,7 @@ sub check_major {
     # check that a /var/run/postgresql/ pid file is created
     my @contents = ('.s.PGSQL.5432', '.s.PGSQL.5432.lock', "$v-main.pid", "$v-main.pg_stat_tmp");
     pop @contents if ($v < 8.4); # remove pg_stat_tmp
-    unless ($PgCommon::rpm) {
+    unless ($PgCommon::rpm and $v < 9.4) {
         ok_dir '/var/run/postgresql/', [@contents],
             'Socket and pid file are in /var/run/postgresql/';
     } else {
@@ -46,7 +46,7 @@ sub check_major {
 
     # check environment
     my %safe_env = qw/LC_ALL 1 LC_CTYPE 1 LANG 1 PWD 1 PGLOCALEDIR 1 PGSYSCONFDIR 1 PG_GRANDPARENT_PID 1 PG_OOM_ADJUST_FILE 1 PG_OOM_ADJUST_VALUE 1 SHLVL 1 PGDATA 1 _ 1/;
-    my %env = pid_env $pm_pids[0];
+    my %env = pid_env 'postgres', $pm_pids[0];
     foreach (keys %env) {
         fail "postgres has unsafe environment variable $_" unless exists $safe_env{$_};
     }
@@ -64,17 +64,17 @@ sub check_major {
 
     @pm_pids = pidof ('postgres');
     is $#pm_pids, 0, 'Exactly one postgres master process running';
-    %env = pid_env $pm_pids[0];
+    %env = pid_env 'postgres', $pm_pids[0];
     is $env{'PGEXTRAVAR1'}, '1', 'correct value of PGEXTRAVAR1 in environment';
     is $env{'PGEXTRAVAR2'}, 'foo bar ', 'correct value of PGEXTRAVAR2 in environment';
 
     # Now there should not be an external PID file any more, since we set it
     # explicitly
-    unless ($PgCommon::rpm) {
+    unless ($PgCommon::rpm and $v < 9.4) {
         ok_dir '/var/run/postgresql', [grep {! /pid/} @contents],
-            'Socket, but not PID file in /var/run/postgresql/';
+            'Socket and stats dir, but not PID file in /var/run/postgresql/';
     } else {
-        ok_dir '/var/run/postgresql', [], '/var/run/postgresql/ is empty';
+        ok_dir '/var/run/postgresql', ["$v-main.pg_stat_tmp"], 'Only stats dir in /var/run/postgresql/';
     }
 
     # verify that the correct client version is selected
@@ -329,7 +329,7 @@ tel|2
     # 9.0, but client backends stay at default; this might not work in
     # containers with restricted privileges, so skip the check there
     my $adj;
-    my $detect_virt = system 'systemd-detect-virt --container --quiet';
+    my $detect_virt = system 'systemd-detect-virt --container --quiet'; # from systemd
     open F, "/proc/$master_pid/oom_score_adj";
     $adj = <F>;
     chomp $adj;
