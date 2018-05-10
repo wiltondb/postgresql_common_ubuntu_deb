@@ -1,0 +1,33 @@
+# systemd service template for PostgreSQL clusters. The actual instances will
+# be called "postgresql@version-cluster", e.g. "postgresql@9.3-main". The
+# variable %i expands to "version-cluster", %I expands to "version/cluster".
+
+[Unit]
+Description=PostgreSQL Cluster %i
+PartOf=postgresql.service
+ReloadPropagatedFrom=postgresql.service
+Before=postgresql.service
+
+[Service]
+Type=notify
+ExecStartPre=/usr/bin/pg_preparecluster --user-cluster %i
+ExecStart=/usr/bin/pg_launchcluster --user-cluster %i
+TimeoutStartSec=infinity
+ExecStop=/bin/kill -INT $MAINPID
+TimeoutStopSec=1h
+ExecReload=/bin/kill -HUP $MAINPID
+SyslogIdentifier=postgresql@%i
+# prevent OOM killer from choosing the postmaster (individual backends will
+# reset the score to 0)
+OOMScoreAdjust=-900
+Environment="PG_OOM_ADJUST_FILE=/proc/self/oom_score_adj"
+# restarting automatically will prevent "pg_ctlcluster ... stop" from working,
+# so we disable it here. Also, the postmaster will restart by itself on most
+# problems anyway, so it is questionable if one wants to enable external
+# automatic restarts.
+#Restart=on-failure
+# (This should make pg_ctlcluster stop work, but doesn't:)
+#RestartPreventExitStatus=SIGINT SIGTERM
+
+[Install]
+WantedBy=multi-user.target
