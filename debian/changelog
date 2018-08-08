@@ -1,3 +1,17 @@
+postgresql-common (192) unstable; urgency=medium
+
+  * postgresql@.service: Use AssertPathExists instead of ConditionPathExists
+    so trying to operate on non-existing clusters fails loudly.
+    (Closes: #891836)
+  * postgresql@.service: Add "RequiresMountsFor /etc/postgresql/%I
+    /var/lib/postgresql/%I" to depend on mounts.
+  * pg_createcluster: Fix error on importing existing clusters, spotted by
+    Mark Eichin, thanks! (Closes: #886871)
+  * postinst_check_catversion: Ignore errors while determining PGDATA.
+  * Move maintainer address to team+postgresql@tracker.debian.org.
+
+ -- Christoph Berg <christoph.berg@credativ.de>  Wed, 08 Aug 2018 16:21:59 +0200
+
 postgresql-common (191) unstable; urgency=medium
 
   [ Christoph Berg ]
