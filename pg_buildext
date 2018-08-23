@@ -4,7 +4,7 @@
 # versions
 #
 # (C) 2010 Dimitri Fontaine <dfontaine@hi-media.com>
-# (C) 2011-2017 Christoph Berg <myon@debian.org>
+# (C) 2011-2018 Christoph Berg <myon@debian.org>
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -50,6 +50,9 @@ prepare_env() {
     vtarget=`echo $target | sed -e "s:%v:$version:g"`
     pgc="/usr/lib/postgresql/$version/bin/pg_config"
     [ -e "$pgc" ] || die "$pgc does not exist"
+    if [ "${CFLAGS:-}" ]; then
+        export COPT="$CFLAGS"
+    fi
 }
 
 configure() {
@@ -70,7 +73,7 @@ build() {
     mkdir -p $vtarget
     # if a Makefile was created by configure, use it, else the top level Makefile
     [ -f $vtarget/Makefile ] || makefile="-f $srcdir/Makefile"
-    make -C $vtarget ${makefile:-} ${cflags:+CFLAGS="$cflags"} PG_CONFIG="$pgc" VPATH="$srcdir" srcdir="$srcdir" USE_PGXS=1
+    make -C $vtarget ${makefile:-} ${cflags:+CFLAGS="$cflags"} PG_CONFIG="$pgc" VPATH="$srcdir" USE_PGXS=1
 }
 
 install() {
@@ -80,7 +83,7 @@ install() {
     mkdir -p $vtarget
     # if a Makefile was created by configure, use it, else the top level Makefile
     [ -f $vtarget/Makefile ] || makefile="-f $srcdir/Makefile"
-    make -C $vtarget ${makefile:-} install DESTDIR="$PWD/debian/$package" PG_CONFIG="$pgc" VPATH="$srcdir" srcdir="$srcdir" USE_PGXS=1
+    make -C $vtarget ${makefile:-} install DESTDIR="$PWD/debian/$package" PG_CONFIG="$pgc" VPATH="$srcdir" USE_PGXS=1
 }
 
 clean() {
@@ -88,7 +91,7 @@ clean() {
 
     # if a Makefile was created by configure, use it, else the top level Makefile
     [ -f $vtarget/Makefile ] || makefile="-f $srcdir/Makefile"
-    [ -d $vtarget ] && make -C $vtarget clean ${makefile:-} PG_CONFIG="$pgc" VPATH="$srcdir" srcdir="$srcdir" USE_PGXS=1
+    [ -d $vtarget ] && make -C $vtarget clean ${makefile:-} PG_CONFIG="$pgc" VPATH="$srcdir" USE_PGXS=1
     rm -rf $vtarget
 }
 
@@ -119,7 +122,7 @@ installcheck() {
 	[ -f $vtarget/Makefile ] || makefile="-f $srcdir/Makefile"
 	if ! pg_virtualenv $VENVARGS -v $1 \
 	    make -C $vtarget ${makefile:-} installcheck \
-		PG_CONFIG="$pgc" VPATH="$srcdir" srcdir="$srcdir" USE_PGXS=1; then
+		PG_CONFIG="$pgc" VPATH="$srcdir" USE_PGXS=1; then
 	    if [ -r $vtarget/regression.diffs ]; then
 		echo "**** $vtarget/regression.diffs ****"
 		cat $vtarget/regression.diffs
@@ -128,7 +131,7 @@ installcheck() {
 	fi
     else
 	if ! pg_virtualenv $VENVARGS -v $1 \
-	    make installcheck PG_CONFIG="$pgc" srcdir="$srcdir" USE_PGXS=1; then
+	    make installcheck PG_CONFIG="$pgc" USE_PGXS=1; then
 	    if [ -r regression.diffs ]; then
 		echo "**** regression.diffs ****"
 		cat regression.diffs
