@@ -4,7 +4,7 @@
 #
 # (C) 2005-2009 Martin Pitt <mpitt@debian.org>
 # (C) 2013 Peter Eisentraut <petere@debian.org>
-# (C) 2013-2017 Christoph Berg <myon@debian.org>
+# (C) 2013-2018 Christoph Berg <myon@debian.org>
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -265,6 +265,7 @@ $newversion = $newest_version;
 
 my $method = 'dump';
 my $link = 0;
+my $start = -1; # -1 = auto
 
 my ($locale, $lc_collate, $lc_ctype, $lc_messages, $lc_monetary, $lc_numeric,
     $lc_time, $logfile, $old_bindir);
@@ -282,6 +283,7 @@ GetOptions ('v|version=s' => \$newversion,
             'rename=s' => \$newcluster,
             'old-bindir=s' => \$old_bindir,
             'maintenance-db=s' => \$maintenance_db,
+            'start!' => \$start,
     ) or exit 1;
 
 $method eq 'dump' or $method eq 'upgrade' or error 'method must be "dump" or "upgrade"';
@@ -332,8 +334,7 @@ my $owner = getpwuid $info{'owneruid'};
 error 'could not get name of cluster owner' unless $owner;
 my $old_hba_modified;
 
-# stopping old cluster, so that we notice early when there are still
-# connections
+# stop old cluster
 if ($info{'running'}) {
     get_encoding $version, $cluster;
     print "Stopping old cluster...\n";
@@ -387,6 +388,13 @@ push @argv, ('--', '--data-checksums') if $oldcontrol->{'Data page checksum vers
 error "Could not create target cluster" if system @argv;
 print "\n";
 
+# if pg_upgrade is used, wal_level needs to be set early so standby servers can
+# be upgraded with the instructions outlined in pg_upgrade(1)
+if ($method eq 'upgrade' and $info{config}->{wal_level}) {
+    PgCommon::set_conf_value $newversion, $newcluster, 'postgresql.conf',
+        'wal_level', $info{config}->{wal_level};
+}
+
 %newinfo = cluster_info($newversion, $newcluster);
 
 if ($method eq 'dump') {
@@ -397,21 +405,12 @@ if ($method eq 'dump') {
     error "Could not start target cluster" if system @argv;
 }
 
-sleep(4);
-
 my $pg_restore = get_program_path 'pg_restore', $newversion;
 
-# check whether upgrade scripts exist; if so, verify that pg_restore supports
-# -X no-data-for-failed-tables.
+# check whether upgrade scripts exist
 my $upgrade_scripts = (-d "$PgCommon::common_confdir/pg_upgradecluster.d" &&
      ($PgCommon::rpm ? `ls $PgCommon::common_confdir/pg_upgradecluster.d` :
          `run-parts --test $PgCommon::common_confdir/pg_upgradecluster.d`));
-
-if ($upgrade_scripts) {
-    if (`$pg_restore --help` !~ qr/no-data-for-failed-tables/) {
-	error "$PgCommon::common_confdir/pg_upgradecluster.d has upgrade scripts, but $pg_restore does not support the \"-X no-data-for-failed-tables\" option."
-    }
-}
 
 # Run upgrade scripts in init phase
 if ($upgrade_scripts) {
@@ -536,15 +535,8 @@ if (!fork) {
 
 	    # start pg_restore and copy over everything
 	    my @restore_argv = ($pg_restore, '-h', $newsocket, '-p',
-		$newinfo{'port'}, '--data-only', '-d', $db);
-
-	    if ($newversion >= '8.3') {
-		push @restore_argv, '--disable-triggers';
-	    }
-
-	    if ($upgrade_scripts) {
-		push @restore_argv, '--no-data-for-failed-tables';
-	    }
+		$newinfo{'port'}, '--data-only', '-d', $db,
+                '--disable-triggers', '--no-data-for-failed-tables');
 	    open SINK, '|-', @restore_argv or
 		error 'Could not execute pg_restore for new cluster';
 
@@ -702,9 +694,18 @@ my $oldport = next_free_port;
 print "Configuring old cluster to use a different port ($oldport)...\n";
 set_cluster_port $version, $cluster, $oldport;
 
-print "Starting target cluster on the original port...\n";
-@argv = ('pg_ctlcluster', $newversion, $newcluster, 'start');
-error "Could not start target cluster; please check configuration and log files" if system @argv;
+# notify systemd that we modified the old start.conf
+if (not exists $ENV{'PG_CLUSTER_CONF_ROOT'} and -d '/run/systemd/system' and $> == 0) {
+    system 'systemctl daemon-reload';
+}
+
+# start cluster if it was running before, or upgrade scripts are present
+$start = ($info{running} or $upgrade_scripts) if ($start == -1);
+if ($start) {
+    print "Starting target cluster on the original port...\n";
+    @argv = ('pg_ctlcluster', $newversion, $newcluster, 'start');
+    error "Could not start target cluster; please check configuration and log files" if system @argv;
+}
 
 # Run upgrade scripts in finish phase
 if ($upgrade_scripts) {
@@ -823,6 +824,11 @@ Passed to B<pg_upgrade>.
 
 Database to connect to for maintenance queries.  The default is B<template1>.
 
+=item B<--[no-]start>
+
+Start the new database cluster after upgrading. The default is to start the new
+cluster if the old cluster was running, or if upgrade hook scripts are present.
+
 =back
 
 =head1 HOOK SCRIPTS
@@ -859,9 +865,6 @@ one. The old cluster still exists, but is not running.
 
 Failing scripts will abort the upgrade.
 The scripts are called as the user who owns the database.
-
-When B<--mode=dump> and upgrade hook scripts are used, pg_restore is invoked
-with B<--no-data-for-failed-tables>.
 
 =head1 SEE ALSO
 

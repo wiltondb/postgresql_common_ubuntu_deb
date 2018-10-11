@@ -1,3 +1,28 @@
+postgresql-common (194) unstable; urgency=medium
+
+  * Remove iproute2 | net-tools dependency from postgresql-server-dev-all,
+    obsolete in pg_buildext since 178.
+  * Also save pg_controldata on catversion changes, pg_upgrade needs it.
+    Spotted by Dagfinn Ilmari Mannsåker, thanks!
+  * Chown /etc/postgresql to user postgres.
+  * pg_ctlcluster: Use "fast" shutdown by default, and remove code to kill -9
+    the server if it doesn't react to a --force stop. (Closes: #756008)
+  * pg_upgradecluster: Start upgraded cluster only if it was running before,
+    override with new --[no-]start option. (Closes: #876281)
+  * pg_upgradecluster: With pg_upgrade, set wal_level early so standby servers
+    can be upgraded via the instructions from pg_upgrade(1). (Closes: #876293)
+  * pg_upgradecluster: Notify systemd about disabling the old cluster.
+  * pg_upgradecluster: Drop sleep(4) that had been there since the first
+    version.
+  * pg_createcluster: Create stats_temp_directory, so pg_upgrade(cluster) can
+    use it even without invoking pg_ctlcluster before. (Closes: #827469)
+  * pg_upgradecluster: Drop check for pg_restore --no-data-for-failed-tables,
+    switch was introduced in 8.2; use it always and not only when upgrade
+    scripts are present. (Closes: #876282)
+  * Debian: Default PostgreSQL version in buster is 11.
+
+ -- Christoph Berg <christoph.berg@credativ.de>  Thu, 11 Oct 2018 17:29:41 +0200
+
 postgresql-common (193) unstable; urgency=medium
 
   [ Francois Marier ]
@@ -18,7 +43,7 @@ postgresql-common (192) unstable; urgency=medium
     so trying to operate on non-existing clusters fails loudly.
     (Closes: #891836)
   * postgresql@.service: Add "RequiresMountsFor /etc/postgresql/%I
-    /var/lib/postgresql/%I" to depend on mounts.
+    /var/lib/postgresql/%I" to depend on mounts. (Closes: #855762)
   * pg_createcluster: Fix error on importing existing clusters, spotted by
     Mark Eichin, thanks! (Closes: #886871)
   * postinst_check_catversion: Ignore errors while determining PGDATA.
