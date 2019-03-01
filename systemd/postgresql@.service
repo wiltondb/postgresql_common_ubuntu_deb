@@ -10,6 +10,8 @@ RequiresMountsFor=/etc/postgresql/%I /var/lib/postgresql/%I
 PartOf=postgresql.service
 ReloadPropagatedFrom=postgresql.service
 Before=postgresql.service
+# stop server before networking goes down on shutdown
+After=network.target
 
 [Service]
 Type=forking
@@ -21,7 +23,7 @@ TimeoutStartSec=0
 ExecStop=/usr/bin/pg_ctlcluster --skip-systemctl-redirect -m fast %i stop
 TimeoutStopSec=1h
 ExecReload=/usr/bin/pg_ctlcluster --skip-systemctl-redirect %i reload
-PIDFile=/var/run/postgresql/%i.pid
+PIDFile=/run/postgresql/%i.pid
 SyslogIdentifier=postgresql@%i
 # prevent OOM killer from choosing the postmaster (individual backends will
 # reset the score to 0)

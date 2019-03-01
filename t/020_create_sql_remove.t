@@ -11,7 +11,7 @@ use lib 't';
 use TestLib;
 use PgCommon;
 
-use Test::More tests => 132 * @MAJORS;
+use Test::More tests => 144 * @MAJORS;
 
 $ENV{_SYSTEMCTL_SKIP_REDIRECT} = 1; # FIXME: testsuite is hanging otherwise
 
@@ -23,11 +23,12 @@ sub check_major {
     my $xlogdir = tempdir("/tmp/$v.xlog.XXXXXX", CLEANUP => 1);
     rmdir $xlogdir; # recreated by initdb
     if ($v > 8.2) {
-        ok ((system "pg_createcluster $v main --start -- -X $xlogdir >/dev/null") == 0,
-            "pg_createcluster $v main");
+        my $start_command = ($v >= 11 and not $PgCommon::rpm) ? "pg_ctlcluster" : "pg_ctl"; # CLUSTER_START_COMMAND supported in initdb
+        like_program_out 'root', "pg_createcluster $v main --start -- -X $xlogdir", 0, qr/$start_command/,
+            "pg_createcluster $v main";
     } else { # 8.2 does not have -X yet
-        ok ((system "pg_createcluster $v main --start >/dev/null") == 0,
-            "pg_createcluster $v main");
+        like_program_out 'root', "pg_createcluster $v main --start", 0, qr/pg_ctl/,
+            "pg_createcluster $v main";
         system "mv /var/lib/postgresql/$v/main/pg_xlog $xlogdir";
         system "ln -s $xlogdir /var/lib/postgresql/$v/main/pg_xlog";
     }
@@ -381,11 +382,26 @@ tel|2
     is ((exec_as 0, "pg_ctlcluster $v main start"), 0, 'starting cluster as postgres works without a log file');
     ok (-e $default_log && ! -z $default_log, 'log file got recreated and used');
 
+    # create tablespaces
+    my $spc1 = tempdir("/tmp/$v.spc1.XXXXXX", CLEANUP => 1);
+    my $spc2 = tempdir("/tmp/$v.spc2.XXXXXX", CLEANUP => 1);
+    is (mkdir ("$spc2/PG_99_fakedirectory"), 1, 'creating a directory in spc2');
+    chown $postgres_uid, 0, $spc1, $spc2, "$spc2/PG_99_fakedirectory";
+    is_program_out 'postgres', "psql -qc \"CREATE TABLESPACE spc1 LOCATION '$spc1'\"", 0, '', 'creating tablespace spc1';
+    is_program_out 'postgres', "psql -qc 'CREATE TABLE tbl1 (x int) TABLESPACE spc1'", 0, '', 'creating a table in spc1';
+    SKIP: {
+        skip "Non-empty tablespaces not supported before 9.0", 4 if ($v < 9.0);
+        is_program_out 'postgres', "psql -qc \"CREATE TABLESPACE spc2 LOCATION '$spc2'\"", 0, '', 'creating tablespace spc2';
+        is_program_out 'postgres', "psql -qc 'CREATE TABLE tbl2 (x int) TABLESPACE spc2'", 0, '', 'creating a table in spc2';
+    }
+
     # stop server, clean up, check for leftovers
     ok ((system "pg_dropcluster $v main --stop") == 0,
 	'pg_dropcluster removes cluster');
 
     is (-e $xlogdir, undef, "xlog/wal directory $xlogdir was deleted");
+    ok_dir $spc1, [], "tablespace spc1 was emptied";
+    ok_dir $spc2, [qw(PG_99_fakedirectory)], "tablespace spc2 was emptied";
     check_clean;
 }
 
