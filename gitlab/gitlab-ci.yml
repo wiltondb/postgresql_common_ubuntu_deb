@@ -12,15 +12,18 @@ stages:
     # allow origtargz to use 'apt-get source'
     - sed -e 's/^deb /deb-src /' /etc/apt/sources.list > /etc/apt/sources.list.d/src.list
     - apt-get -q update
-    - apt-get -y --no-install-recommends install devscripts fakeroot liblwp-protocol-https-perl libwww-perl
+    - apt-get -y --no-install-recommends install devscripts fakeroot git liblwp-protocol-https-perl libwww-perl pristine-tar
     - apt-get -y --no-install-recommends build-dep .
     # create user for building
     - useradd buildd
     - chown -R buildd:buildd .
     - chown buildd:buildd ..
   script:
-    - su -c 'origtargz' buildd
+    # create pristine-tar branch (ignore any errors if missing), and generate/fetch orig tarball
+    - su -c 'git branch pristine-tar origin/pristine-tar; origtargz' buildd
+    # regenerate debian/control
     - if [ -f debian/control.in ]; then su -c 'pg_buildext updatecontrol' buildd; fi
+    # build package
     - su -c 'dpkg-buildpackage --no-sign -sa -rfakeroot' buildd
   after_script:
     - rm -rf deb && mkdir deb
@@ -50,7 +53,7 @@ lintian:unstable: { <<: *lintian, dependencies: ['build:unstable'], image: 'debi
     - apt-get -q update
     - apt-get -y --no-install-recommends install autopkgtest autodep8
   script:
-    - autopkgtest deb/*.changes -- null
+    - autopkgtest deb/*.changes -- null || case $? in 2|8) exit 0;; *) exit $?;; esac # ignore skipped tests, and packages without tests
 
 autopkgtest:testing:  { <<: *autopkgtest, dependencies: ['build:testing'], image: 'debian:testing' }
 autopkgtest:unstable: { <<: *autopkgtest, dependencies: ['build:unstable'], image: 'debian:sid' }
