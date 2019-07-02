@@ -1,3 +1,15 @@
+postgresql-common (202) unstable; urgency=medium
+
+  * pg_ctlcluster: Close extra log filedescriptor. Thanks Andrey Borodin!
+    (Closes: #930728)
+  * pg_virtualenv: Disable fakeroot while creating clusters so we don't end up
+    running as root.
+  * t/135_pg_virtualenv.t: New test file.
+  * t/TestLib.pm: Restrict check_clean to LISTENing sockets.
+  * gitlab/gitlab-ci.yml: Run blhc; fail on lintian errors.
+
+ -- Christoph Berg <myon@debian.org>  Tue, 02 Jul 2019 14:39:56 +0200
+
 postgresql-common (201) experimental; urgency=medium
 
   [ Christoph Berg ]

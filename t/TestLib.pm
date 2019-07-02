@@ -1,7 +1,7 @@
 # Common functionality for postgresql-common self tests
 #
 # (C) 2005-2009 Martin Pitt <mpitt@debian.org>
-# (C) 2013-2016 Christoph Berg <myon@debian.org>
+# (C) 2013-2019 Christoph Berg <myon@debian.org>
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -241,7 +241,7 @@ sub check_clean {
     # complain about missing directories
     ok_dir '/var/log/postgresql', [], "No files in /var/log/postgresql left behind";
 
-    is_program_out 0, 'netstat -avptn 2>/dev/null | grep ":543[2-9]\\b"', 1, '',
+    is_program_out 0, 'netstat -avptn 2>/dev/null | grep ":543[2-9]\\b.*LISTEN"', 1, '',
 	'PostgreSQL TCP ports are closed';
 }
 
