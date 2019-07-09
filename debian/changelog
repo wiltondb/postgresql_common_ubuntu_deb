@@ -1,3 +1,35 @@
+postgresql-common (203) unstable; urgency=medium
+
+  DATA LOSS WARNING: pg_upgradecluster from postgresql-common 200 .. 202 will
+  corrupt the data_directory setting when used *twice* to upgrade a cluster
+  (e.g. 9.6 -> 10 -> 11). This update fixes the original problem, and also
+  heals affected clusters on the next upgrade. No additional steps are required.
+
+  https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=931635
+
+  * pg_createcluster: Allow clusters with owner gid 0. (salsa-ci uses that.)
+  * pg_createcluster: If there are --auth options in createcluster.conf's
+    initdb_options, don't update pg_hba.conf.
+  * pg_upgradecluster: Don't accidentally set (the wrong!) data_directory in
+    postgresql.auto.conf. (Closes: #931635)
+  * PgCommon.pm: Ignore data_directory when set in postgresql.auto.conf.
+  * pg_upgradecluster: Delete data_directory from postgresql.auto.conf in new
+    cluster.
+  * pg_upgradecluster: Use a tempfile instead of replacing the original
+    pg_hba.conf file during upgrades.
+  * pg_upgradecluster: With --keep-port, leave old cluster on original port.
+    (Closes: #507133)
+  * pg_ctlcluster: For consistency with systemctl, also accept action before
+    cluster name: "pg_ctlcluster start 11 main".
+  * pg_ctlcluster: Use `psql -w` to avoid flooding the log with errors when
+    the cluster was configured for password authentication on local
+    connections. Patch by Evgeny, thanks!
+  * debian/tests: Do full testsuite run. Previously the full testsuite was
+    only running from the postgresql-NN server package.
+  * t/135_pg_virtualenv.t: Don't fail if fakeroot is not present.
+
+ -- Christoph Berg <myon@debian.org>  Tue, 09 Jul 2019 16:16:57 +0200
+
 postgresql-common (202) unstable; urgency=medium
 
   * pg_ctlcluster: Close extra log filedescriptor. Thanks Andrey Borodin!

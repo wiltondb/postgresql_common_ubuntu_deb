@@ -19,6 +19,7 @@
 use strict;
 use warnings;
 use PgCommon;
+use File::Temp qw(tempfile);
 use Getopt::Long;
 use POSIX qw(lchown);
 
@@ -67,7 +68,12 @@ sub adapt_conffiles {
     };
 
     # adapt paths to configuration files
-    $set->('data_directory', $newinfo{'pgdata'});
+    if ($configfile eq 'postgresql.conf') {
+        $set->('data_directory', $newinfo{'pgdata'});
+    } else {
+        # fix bug in pg_upgradecluster 200..202
+        $deprecate->(\%c, 'data_directory', 'not valid in postgresql.auto.conf');
+    }
     for my $guc (qw(hba_file ident_file external_pid_file stats_temp_directory)) {
         next unless (defined $c{$guc});
         my $val = $c{$guc};
@@ -140,7 +146,7 @@ sub adapt_conffiles {
     if ($newversion >= '9.4') {
         $deprecate->(\%c, 'krb_srvname', 'native krb5 authentication deprecated in favor of GSSAPI');
         # grab dsmt from the new config just written by initdb
-        unless ($c{dynamic_shared_memory_type}) {
+        if (not $c{dynamic_shared_memory_type} and $configfile eq 'postgresql.conf') {
             $set->('dynamic_shared_memory_type', ($newinfo{config}->{dynamic_shared_memory_type} || 'mmap'));
         }
     }
@@ -171,36 +177,21 @@ sub adapt_conffiles {
     }
 }
 
-# Save original pg_hba.conf, replace it with one that only allows local access
-# to the owner. Database must be reloaded manually if it is running.
+# Write temporary pg_hba.conf.
 # Arguments: <version> <cluster> <owner> <owneruid>
-sub disable_connections {
-    my $hba = "$PgCommon::confroot/$_[0]/$_[1]/pg_hba.conf";
+sub temp_hba_conf {
+    my ($fh, $hba) = tempfile("pg_hba.XXXXXX", TMPDIR => 1, SUFFIX => ".conf");
 
-    return if (-e "$hba.pg_upgradecluster"); # leftover from a previous upgrade
-		# attempt, do not rename again so we do not lose the original
-    rename $hba, "$hba.pg_upgradecluster" or error "could not rename $hba: $!";
-    unless (open F, ">$hba") {
-        rename "$hba.pg_upgradecluster", $hba;
-        error "could not create $hba";
+    if ($_[0] >= '8.4') {
+	print $fh "local all $_[2] ident\n";
+    } else {
+	print $fh "local all $_[2] ident sameuser\n";
     }
+    close $fh;
     chmod 0400, $hba;
     lchown $_[3], 0, $hba;
-    if ($_[0] >= '8.4') {
-	print F "local all $_[2] ident\n";
-    } else {
-	print F "local all $_[2] ident sameuser\n";
-    }
-    close F;
-}
 
-# Restore original pg_hba.conf, but do not restart postgres.
-# Arguments: <version> <cluster>
-sub enable_connections {
-    my $hba = "$PgCommon::confroot/$_[0]/$_[1]/pg_hba.conf";
-
-    rename "$hba.pg_upgradecluster", $hba or error "could not rename $hba.pg_upgradecluster: $!"
-	if (-e "$hba.pg_upgradecluster");
+    return $hba;
 }
 
 # Get encoding and locales of a running cluster
@@ -242,6 +233,7 @@ $newversion = $newest_version;
 
 my $method = 'dump';
 my $link = 0;
+my $keep_port = 0;
 my $start = -1; # -1 = auto
 
 my ($locale, $lc_collate, $lc_ctype, $lc_messages, $lc_monetary, $lc_numeric,
@@ -258,6 +250,7 @@ GetOptions ('v|version=s' => \$newversion,
 	    'm|method=s' => \$method,
 	    'j|jobs=s', => \$jobs,
 	    'k|link' => \$link,
+            'keep-port' => \$keep_port,
             'rename=s' => \$newcluster,
             'old-bindir=s' => \$old_bindir,
             'maintenance-db=s' => \$maintenance_db,
@@ -312,7 +305,7 @@ my $oldpsql = get_program_path 'psql', $version;
 my $oldsocket = get_cluster_socketdir $version, $cluster;
 my $owner = getpwuid $info{'owneruid'};
 error 'could not get name of cluster owner' unless $owner;
-my $old_hba_modified;
+my $temp_hba_conf = temp_hba_conf $version, $cluster, $owner, $info{'owneruid'};
 
 # stop old cluster
 if ($info{'running'}) {
@@ -323,15 +316,10 @@ if ($info{'running'}) {
 }
 
 if ($method eq 'dump' or ($method eq 'upgrade' and not $info{'running'})) {
-    # Disable access to cluster during upgrade
-    print "Disabling connections to the old cluster during upgrade...\n";
-    disable_connections $version, $cluster, $owner, $info{'owneruid'};
-    $old_hba_modified = 1;
-
     print "Restarting old cluster with restricted connections...\n";
     my @argv = ('pg_ctlcluster',
         ($old_bindir ? ("--bindir=$old_bindir") : ()),
-        $version, $cluster, 'start');
+        $version, $cluster, 'start', '-o', "-c hba_file=$temp_hba_conf");
     error "Could not restart old cluster" if system @argv;
 
     get_encoding $version, $cluster unless ($encoding); # if the cluster was not running before, get encoding now
@@ -378,10 +366,8 @@ if ($method eq 'upgrade' and $info{config}->{wal_level}) {
 %newinfo = cluster_info($newversion, $newcluster);
 
 if ($method eq 'dump') {
-    print "Disabling connections to the new cluster during upgrade...\n";
-    disable_connections $newversion, $newcluster, $owner, $newinfo{'owneruid'};
-
-    @argv = ('pg_ctlcluster', $newversion, $newcluster, 'start');
+    print "Starting new cluster...\n";
+    @argv = ('pg_ctlcluster', $newversion, $newcluster, 'start', '-o', "-c hba_file=$temp_hba_conf");
     error "Could not start target cluster" if system @argv;
 }
 
@@ -594,22 +580,17 @@ if (!fork) {
 }
 
 wait;
-if ($old_hba_modified) {
-    print "Re-enabling connections to the old cluster...\n";
-    enable_connections $version, $cluster;
-}
-if ($method eq 'dump') {
-    print "Re-enabling connections to the new cluster...\n";
-    enable_connections $newversion, $newcluster;
-}
 
 if ($?) {
     print STDERR "Error during cluster dumping, removing new cluster\n";
     system 'pg_dropcluster', '--stop', $newversion, $newcluster;
 
-    # Reload old cluster to allow connections again
-    if (system 'pg_ctlcluster', $version, $cluster, 'reload') {
-        error 'could not reload old cluster, please do that manually';
+    # Restart old cluster to allow connections again (two steps because we started without systemd)
+    if (system 'pg_ctlcluster', $version, $cluster, 'stop') {
+        error 'could not stop old cluster, please do that manually';
+    }
+    if (system 'pg_ctlcluster', $version, $cluster, 'start') {
+        error 'could not start old cluster, please do that manually';
     }
     exit 1;
 }
@@ -711,9 +692,16 @@ manual
     error "could not create $startconf: $!";
 }
 
-my $oldport = next_free_port;
-print "Configuring old cluster to use a different port ($oldport)...\n";
-set_cluster_port $version, $cluster, $oldport;
+my $free_port = next_free_port;
+if ($keep_port) {
+    print "Configuring new cluster to use a different port ($free_port)...\n";
+    set_cluster_port $newversion, $cluster, $free_port;
+    $newinfo{port} = $free_port;
+} else {
+    print "Configuring old cluster to use a different port ($free_port)...\n";
+    set_cluster_port $version, $cluster, $free_port;
+    $newinfo{port} = $info{port};
+}
 
 # notify systemd that we modified the old start.conf
 if (not exists $ENV{'PG_CLUSTER_CONF_ROOT'} and -d '/run/systemd/system' and $> == 0) {
@@ -723,7 +711,7 @@ if (not exists $ENV{'PG_CLUSTER_CONF_ROOT'} and -d '/run/systemd/system' and $> 
 # start cluster if it was running before, or upgrade scripts are present
 $start = ($info{running} or $upgrade_scripts) if ($start == -1);
 if ($start) {
-    print "Starting target cluster on the original port...\n";
+    print "Starting target cluster on port $newinfo{port}...\n";
     @argv = ('pg_ctlcluster', $newversion, $newcluster, 'start');
     error "Could not start target cluster; please check configuration and log files" if system @argv;
 }
@@ -750,7 +738,7 @@ if ($upgrade_scripts) {
     exit $? >> 8 if ($?);
 }
 
-print "Success. Please check that the upgraded cluster works. If it does,
+print "\nSuccess. Please check that the upgraded cluster works. If it does,
 you can remove the old cluster with
     pg_dropcluster $version $cluster\n\n";
 
@@ -842,6 +830,12 @@ L<pg_upgrade(1)> for details.
 In pg_upgrade mode, number of simultaneous processes to use. This
 option is merely passed on to pg_upgrade. See L<pg_upgrade(1)>
 for details.
+
+=item B<--keep-port>
+
+By default, the old cluster is moved to a new port, and the new cluster is
+moved to the original port so clients will see the upgraded cluster. This
+option disables that.
 
 =item B<--rename=>I<new cluster name>
 

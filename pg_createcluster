@@ -63,9 +63,6 @@ sub init_db {
 
     my @initdb = (get_program_path 'initdb', $version);
     die 'Internal error: could not determine initdb path' unless $initdb[0];
-    if (my $options = $defaultconf{'initdb_options'}) {
-	push @initdb, split (/\s+/, replace_v_c ($options, $version, $cluster));
-    }
     push @initdb, ('-D', $datadir);
     if (my $waldir = $defaultconf{'waldir'} || $defaultconf{'xlogdir'}) {
         my $wal = $version >= 10 ? 'wal' : 'xlog'; # renamed in PG 10
@@ -78,6 +75,9 @@ sub init_db {
 	push @initdb, ('--auth-host', 'md5');
     } else {
 	push @initdb, ('-A', $ident_method);
+    }
+    if (my $options = $defaultconf{'initdb_options'}) {
+        push @initdb, split (/\s+/, replace_v_c ($options, $version, $cluster));
     }
     push @initdb, ('--encoding', $encoding) if $encoding;
     push @initdb, ('--locale', $locale) if $locale;
@@ -151,7 +151,7 @@ sub setup_pg_hba {
 	    $search = 0;
 	}
 
-	if (not $explicit_auth_config and $version lt '9.2') {
+        if ($version lt '9.2') {
 	    # default authentication for Unix socket connections
 	    if ($line =~ /^#?local/) {
 		$line =~ s/trust/$peer_method/;
@@ -207,6 +207,7 @@ exit 1 unless GetOptions ('u|user=s' => \$owneruid, 'g|group=s' => \$ownergid,
 
 # read defaults from /etc/postgresql-common/createcluster.conf
 %defaultconf = PgCommon::read_conf_file ($createclusterconf);
+$explicit_auth_config = 1 if ($defaultconf{initdb_options} and $defaultconf{initdb_options} =~ /(^| )(-\w*A|--auth\b)/);
 
 # check validity of locale
 unless (setlocale (LC_ALL, "")) {
@@ -264,7 +265,7 @@ if ($ownergid) {
     $ownergid = (getpwuid $owneruid)[3];
 }
 
-error 'clusters must not be owned by root' unless $owneruid && $ownergid;
+error 'clusters must not be owned by root' unless $owneruid;
 
 ($version) = $ARGV[0] =~ /^(\d+\.?\d+)$/;
 error "invalid version '$ARGV[0]'" unless defined $version;
