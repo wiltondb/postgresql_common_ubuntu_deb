@@ -1,3 +1,18 @@
+postgresql-common (204) unstable; urgency=medium
+
+  * dh_installinit: Add -ppostgresql-common to work around debhelper #932073.
+  * dh_make_pgxs: Add debian/watch template (with a github pattern).
+  * pgdg/apt.postgresql.org.sh: Add options to choose PostgreSQL version, and
+    to optionally install packages automatically.
+  * Move pg_buildext from postgresql-server-dev-all to postgresql-common. Many
+    use-cases do not need the header files and compiler dependencies
+    installed.
+  * debian/supported-versions: Use PG11 on Bullseye.
+  * pg_virtualenv: Write temporary password file before chowning the file.
+    (Closes: #933569)
+
+ -- Christoph Berg <myon@debian.org>  Thu, 08 Aug 2019 12:48:00 +0200
+
 postgresql-common (203) unstable; urgency=medium
 
   DATA LOSS WARNING: pg_upgradecluster from postgresql-common 200 .. 202 will
