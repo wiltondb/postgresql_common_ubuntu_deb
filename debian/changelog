@@ -1,3 +1,13 @@
+postgresql-common (205) unstable; urgency=medium
+
+  * Disable plpython2 packages by default. (Closes: #937310)
+  * testsuite: Prefer PgCommon.pm from current directory.
+  * pgcommon.sh: Remove obsolete Ubuntu code in locale_gen function.
+  * Drop lsb-release dependencies, we prefer /etc/os-release anyway.
+  * apt.postgresql.org.sh: Parse VERSION_CODENAME in /etc/os-release.
+
+ -- Christoph Berg <myon@debian.org>  Wed, 04 Sep 2019 08:38:08 +0200
+
 postgresql-common (204) unstable; urgency=medium
 
   * dh_installinit: Add -ppostgresql-common to work around debhelper #932073.
