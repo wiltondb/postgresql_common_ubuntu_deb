@@ -1,3 +1,11 @@
+postgresql-common (206) unstable; urgency=medium
+
+  * pg_ctlcluster, pg_upgradecluster: Always use latest psql.
+  * t/135_pg_virtualenv.t: Run pg_virtualenv on all versions.
+  * gitlab/gitlab-ci.yml: Include salsa-ci pipeline instead of our own.
+
+ -- Christoph Berg <myon@debian.org>  Thu, 12 Sep 2019 15:49:10 +0200
+
 postgresql-common (205) unstable; urgency=medium
 
   * Disable plpython2 packages by default. (Closes: #937310)
