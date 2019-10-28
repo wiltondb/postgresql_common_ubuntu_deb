@@ -1,3 +1,28 @@
+postgresql-common (208) unstable; urgency=medium
+
+  [ Christoph Berg ]
+  * gitlab/gitlab-ci.yml: Too many packages fail because reprotest runs the
+    build as root, disable for now.
+  * README.Debian: Redirect reference to architecture.html to README.md.gz.
+    (Closes: #942021)
+  * README.Devel: Remove, bzr is long obsolete.
+  * Remove dependency on dctrl-tools; rewrite control file updating in perl.
+    As a side effect, generated debian/control files will no longer have a
+    trailing empty line. Die if no supported versions were found.
+  * pg_upgradecluster: Accept -m link and -m clone for simplicity.
+  * debian/supported-versions: Add 12 as default version and for Ubuntu 20.04.
+  * pg_createcluster: Add note on security implications of using --auth-host
+    and --auth-local.
+  * postgresql-all: Don't depend on postgresql-plpython-12, it doesn't exist.
+  * pg_buildext: New action "installed-versions" reporting the list of
+    PostgreSQL major versions used by packages built from a source package.
+  * pg_buildext: "installcheck" uses "installed-versions" now.
+
+  [ Tilman Koschnick ]
+  * pg_upgradecluster: Support passing --clone to pg_upgrade.
+
+ -- Christoph Berg <myon@debian.org>  Mon, 28 Oct 2019 15:04:12 +0100
+
 postgresql-common (207) unstable; urgency=medium
 
   * PgCommon.pm: Fix infinite recursion in get_program_path if

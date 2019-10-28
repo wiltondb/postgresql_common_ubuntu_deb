@@ -233,6 +233,7 @@ $newversion = $newest_version;
 
 my $method = 'dump';
 my $link = 0;
+my $clone = 0;
 my $keep_port = 0;
 my $start = -1; # -1 = auto
 
@@ -250,6 +251,7 @@ GetOptions ('v|version=s' => \$newversion,
 	    'm|method=s' => \$method,
 	    'j|jobs=s', => \$jobs,
 	    'k|link' => \$link,
+            'clone' => \$clone,
             'keep-port' => \$keep_port,
             'rename=s' => \$newcluster,
             'old-bindir=s' => \$old_bindir,
@@ -257,9 +259,19 @@ GetOptions ('v|version=s' => \$newversion,
             'start!' => \$start,
     ) or exit 1;
 
-$method eq 'dump' or $method eq 'upgrade' or error 'method must be "dump" or "upgrade"';
-$link and $method eq 'dump' and error 'cannot use --link with --method=dump';
-$jobs and $method eq 'dump' and error 'cannot use --jobs with --method=dump';
+if ($method eq 'dump') {
+    error 'cannot use --link with --method=dump' if ($link);
+    error 'cannot use --clone with --method=dump' if ($clone);
+    error 'cannot use --jobs with --method=dump' if ($jobs);
+} elsif ($method eq 'link') {
+    $method = 'upgrade';
+    $link = 1;
+} elsif ($method eq 'clone') {
+    $method = 'upgrade';
+    $clone = 1;
+} elsif ($method ne 'upgrade') {
+    error 'method must be "dump", "upgrade", "link", or "clone"';
+}
 
 # untaint
 ($newversion) = $newversion =~ /^(\d+\.?\d+)$/;
@@ -556,6 +568,7 @@ if (!fork) {
         }
         push @argv, '-D', $newinfo{configdir};
 	push @argv, "--link" if $link;
+	push @argv, "--clone" if $clone;
 	push @argv, '-j', $jobs if $jobs;
 
 	# Make a directory for pg_upgrade to store its reports and log
@@ -812,17 +825,26 @@ retain database encodings.)
 
 Like B<--locale>, but only sets the locale in the specified category.
 
-=item B<-m>, B<--method=>dump|upgrade
+=item B<-m>, B<--method=>B<dump>|B<upgrade>|B<link>|B<clone>
 
-Specify the upgrade method.  "dump" uses L<pg_dump(1)> and
-L<pg_restore(1)>, "upgrade" uses L<pg_upgrade(1)>.  The default is
-"dump".
+Specify the upgrade method.  B<dump> uses L<pg_dump(1)> and
+L<pg_restore(1)>, B<upgrade> uses L<pg_upgrade(1)>.  The default is
+B<dump>.
+
+B<link> and B<clone> are shorthands for B<-m upgrade --link> and B<-m upgrade --clone>,
+respectively.
 
 =item B<-k>, B<--link>
 
 In pg_upgrade mode, use hard links instead of copying files to the new
 cluster.  This option is merely passed on to pg_upgrade.  See
 L<pg_upgrade(1)> for details.
+
+=item B<--clone>
+
+In pg_upgrade mode, use efficient file cloning (also known as "reflinks"
+on some systems) instead of copying files to the new cluster. This option
+is merely passed on to pg_upgrade.  See L<pg_upgrade(1)> for details.
 
 =item B<-j>, B<--jobs>
 
@@ -894,6 +916,6 @@ The scripts are called as the user who owns the database.
 
 L<pg_createcluster(8)>, L<pg_dropcluster(8)>, L<pg_lsclusters(1)>, L<pg_wrapper(1)>
 
-=head1 AUTHOR
+=head1 AUTHORS
 
-Martin Pitt L<E<lt>mpitt@debian.orgE<gt>>
+Martin Pitt L<E<lt>mpitt@debian.orgE<gt>>, Christoph Berg L<E<lt>myon@debian.orgE<gt>>
