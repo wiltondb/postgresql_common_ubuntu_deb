@@ -180,7 +180,7 @@ installed_versions() {
             # translate templates to actually installed packages
             dpkg-query --showformat '${db:Status-Status} ${Package}\n' --show "$prefix*$suffix" | \
                 grep '^installed' | cut -d ' ' -f 2 | sed -e "s/^$prefix//; s/$suffix\$//"
-        done | sort -u
+        done | sort -uV
 }
 
 gencontrol() {
@@ -279,9 +279,13 @@ case $action in
         ;;
 
     installcheck)
-        versions=$(installed_versions)
+        if [ -f debian/control.in ]; then
+            versions=$(installed_versions)
+        else
+            versions=$(versions)
+        fi
         [ "$versions" ] || exit 1
-        for v in $(installed_versions); do
+        for v in $versions; do
             echo "### $action $v ###"
             $action $v
         done
