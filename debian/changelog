@@ -1,3 +1,10 @@
+postgresql-common (211) unstable; urgency=medium
+
+  [ Dagfinn Ilmari Mannsåker ]
+  * pg_createcluster, pg_updatedicts: Enable strict and warnings.
+
+ -- Christoph Berg <myon@debian.org>  Mon, 27 Jan 2020 14:57:59 +0100
+
 postgresql-common (210) unstable; urgency=medium
 
   * pg_ctlcluster: Drop privileges before creating socket and stats temp

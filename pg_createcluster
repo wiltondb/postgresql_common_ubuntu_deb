@@ -16,6 +16,8 @@
 #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #  GNU General Public License for more details.
 
+use strict;
+use warnings;
 use PgCommon;
 use Getopt::Long;
 use POSIX qw/lchown setlocale LC_ALL LC_CTYPE/;
@@ -40,8 +42,10 @@ sub replace_v_c ($$$) {
 # call initdb 
 # Arguments: <version> <data directory> <owner uid> <owner gid> <initdb options>
 sub init_db {
-    my ($version, $datadir, $owneruid, $ownergid, $initdb_opts_from_cli) = @_;
+    my ($version, $cluster, $datadir, $owneruid, $ownergid, $initdb_opts_from_cli) = @_;
     $datadir = readlink $datadir if (-l $datadir);
+
+    my ($ident_method, $peer_method);
     if ($version >= '8.4') {
 	$ident_method = 'ident';
     } else {
@@ -79,14 +83,6 @@ sub init_db {
     if (my $options = $defaultconf{'initdb_options'}) {
         push @initdb, split (/\s+/, replace_v_c ($options, $version, $cluster));
     }
-    push @initdb, ('--encoding', $encoding) if $encoding;
-    push @initdb, ('--locale', $locale) if $locale;
-    push @initdb, ('--lc-collate', $lc_collate) if $lc_collate;
-    push @initdb, ('--lc-ctype', $lc_ctype) if $lc_ctype;
-    push @initdb, ('--lc-messages', $lc_messages) if $lc_messages;
-    push @initdb, ('--lc-monetary', $lc_monetary) if $lc_monetary;
-    push @initdb, ('--lc-numeric', $lc_numeric) if $lc_numeric;
-    push @initdb, ('--lc-time', $lc_time) if $lc_time;
     push @initdb, @$initdb_opts_from_cli;
 
     if (fork) {
@@ -97,14 +93,16 @@ sub init_db {
         print "@initdb\n";
         exec @initdb;
     }
+
+    return ($ident_method, $peer_method);
 }
 
 # move a file to a directory with defined permissions; set <postgresql.conf option> in
 # postgresql.conf.
 # Arguments: <source file> <target dir> <uid> <gid> <perms> <postgresql.conf option>
 sub move_conffile {
-    ($file, $target, $uid, $gid, $perms, $confopt) = @_;
-    $realfile = $file;
+    my ($file, $target, $version, $cluster, $uid, $gid, $perms, $confopt) = @_;
+    my $realfile = $file;
     while (-l $realfile) {
         $realfile = readlink $realfile;
     }
@@ -112,7 +110,7 @@ sub move_conffile {
 	install_file $realfile, $target, $uid, $gid, $perms;
         unlink $file, $realfile;
 
-	@pathcomps = split ('/', $file);
+	my @pathcomps = split ('/', $file);
 	$target .= '/' . $pathcomps[-1];
 	PgCommon::set_conf_value $version, $cluster, 'postgresql.conf', $confopt, $target if $confopt;
     } else {
@@ -125,10 +123,10 @@ sub move_conffile {
 # other entries. 
 # - Change default authentication for host entries to md5.
 sub setup_pg_hba {
-    my ($version) = @_;
-    $user = (getpwuid $owneruid)[0];
-    $fname = "$confdir/pg_hba.conf";
-    $su_comment = "
+    my ($version, $owneruid, $confdir, $ident_method, $peer_method) = @_;
+    my $user = (getpwuid $owneruid)[0];
+    my $fname = "$confdir/pg_hba.conf";
+    my $su_comment = "
 # DO NOT DISABLE!
 # If you change this first entry you will need to make sure that the
 # database superuser can access the database using some other method.
@@ -138,15 +136,14 @@ sub setup_pg_hba {
 # Database administrative login by Unix domain socket
 ";
     
-    open (F, $fname) or error "could not open $fname for reading";
-    $search = 1;
-    while (<F>) {
-	$line = $_;
+    open my $hba, '<', $fname or error "could not open $fname for reading";
+    my $search = 1;
+    my @lines;
+    while (my $line = <$hba>) {
 	# add superuser entry before column description line
-	if ($search && /#.*TYPE\s+DATABASE/) {
+	if ($search && $line =~ /#.*TYPE\s+DATABASE/) {
 	    push @lines, $su_comment;
-	    $s = sprintf "%-7s %-15s %-39s %s\n", 'local', 'all', $user, $peer_method;
-	    push @lines, $s;
+	    push @lines, sprintf "%-7s %-15s %-39s %s\n", 'local', 'all', $user, $peer_method;
 	    push @lines, "\n";
 	    $search = 0;
 	}
@@ -165,15 +162,15 @@ sub setup_pg_hba {
 
 	push @lines, $line;
     }
-    close F;
+    close $hba;
 
     error "setup_pg_hba: did not find insert position" if $search;
 
-    open (F, ">$fname") or error "could not open $fname for writing";
+    open my $new_hba, '>', $fname or error "could not open $fname for writing";
     foreach (@lines) {
-	print F $_;
+	print $new_hba $_;
     }
-    close F;
+    close $new_hba;
 }
 
 #
@@ -187,9 +184,11 @@ my $cleanup_cruft = 0;
 # command line arguments
 
 my $startconf = '';
-my $pgoptions = [];
+my @pgoptions;
 my $createclusterconf = "$PgCommon::common_confdir/createcluster.conf";
 my $environmentfile = "$PgCommon::common_confdir/environment";
+my ($owneruid, $ownergid, $socketdir, $datadir, $custom_logfile, $start, $port);
+my ($encoding, $locale, $lc_collate, $lc_ctype,  $lc_messages, $lc_monetary, $lc_numeric, $lc_time);
 
 exit 1 unless GetOptions ('u|user=s' => \$owneruid, 'g|group=s' => \$ownergid,
     's|socketdir=s' => \$socketdir, 'd|datadir=s' => \$datadir, 
@@ -267,17 +266,27 @@ if ($ownergid) {
 
 error 'clusters must not be owned by root' unless $owneruid;
 
-($version) = $ARGV[0] =~ /^(\d+\.?\d+)$/;
+my ($version) = $ARGV[0] =~ /^(\d+\.?\d+)$/;
 error "invalid version '$ARGV[0]'" unless defined $version;
-($cluster) = $ARGV[1] =~ /^([-.\w]+)$/;
+my ($cluster) = $ARGV[1] =~ /^([-.\w]+)$/;
 error "invalid cluster name '$ARGV[1]'" unless defined $cluster;
 if ($cluster =~ /-/ and -t 1) {
     print "Warning: cluster names containing dashes (-) will cause problems when running from systemd. Continuing anyway\n";
 }
 splice @ARGV, 0, 2;
 
+my @initdb_opts_from_cli;
+# options passed through to initdb
+push @initdb_opts_from_cli, ('--encoding', $encoding) if $encoding;
+push @initdb_opts_from_cli, ('--locale', $locale) if $locale;
+push @initdb_opts_from_cli, ('--lc-collate', $lc_collate) if $lc_collate;
+push @initdb_opts_from_cli, ('--lc-ctype', $lc_ctype) if $lc_ctype;
+push @initdb_opts_from_cli, ('--lc-messages', $lc_messages) if $lc_messages;
+push @initdb_opts_from_cli, ('--lc-monetary', $lc_monetary) if $lc_monetary;
+push @initdb_opts_from_cli, ('--lc-numeric', $lc_numeric) if $lc_numeric;
+push @initdb_opts_from_cli, ('--lc-time', $lc_time) if $lc_time;
+
 # initdb options passed after --
-my @initdb_opts_from_cli = ();
 foreach my $argv (@ARGV) {
     # the user passed an authentication method, don't mess with initdb and pg_hba.conf
     if ($argv =~ /^(-\w*A|--auth\b)/) { # -A --auth --auth-host --auth-local
@@ -302,8 +311,8 @@ if (!defined $datadir) {
         $datadirp_created = $pd; # clean up in case of error
     }
 }
-$confdirp = "$PgCommon::confroot/$version";
-$confdir = "$confdirp/$cluster";
+my $confdirp = "$PgCommon::confroot/$version";
+my $confdir = "$confdirp/$cluster";
 
 # some sanity checks
 error "no initdb program for version $version found" unless get_program_path 'initdb', $version;
@@ -332,16 +341,14 @@ error 'could not create configuration directory; you might ' .
 
 # check whether we have an already existing cluster; check version and
 # determine owner in this case
-$newcluster = 0;
+my $newcluster = 0;
 
+my ($ident_method, $peer_method);
 if (-f "$datadir/PG_VERSION") {
-    if (open F, "$datadir/PG_VERSION") {
-        $existingver = <F>;
-        close F;
-        chomp $existingver;
-    } else {
-        error "could not open $datadir/PG_VERSION";
-    }
+    open my $fh, '<', "$datadir/PG_VERSION" or error "could not open $datadir/PG_VERSION";
+    chomp(my $existingver = <$fh>);
+    close $fh;
+
     ($owneruid, $ownergid) = (stat "$datadir/PG_VERSION")[4,5];
     if ($existingver == $version) {
         print "Configuring already existing cluster (configuration: $confdir, data: $datadir, owner: $owneruid:$ownergid)\n";
@@ -352,7 +359,7 @@ if (-f "$datadir/PG_VERSION") {
     print "Creating new PostgreSQL cluster $version/$cluster ...\n";
     # ask initdb to print a different cluster start command (Debian patch)
     $ENV{CLUSTER_START_COMMAND} = "pg_ctlcluster $version $cluster start";
-    init_db $version, $datadir, $owneruid, $ownergid, \@initdb_opts_from_cli;
+    ($ident_method, $peer_method) = init_db $version, $cluster, $datadir, $owneruid, $ownergid, \@initdb_opts_from_cli;
     $newcluster = 1;
 }
 
@@ -363,9 +370,9 @@ set_cluster_start_conf $version, $cluster, $startconf;
 set_cluster_pg_ctl_conf $version, $cluster, '';
 
 # move conffiles, setup permissions
-move_conffile "$datadir/postgresql.conf", $confdir, $owneruid, $ownergid, '644';
-move_conffile "$datadir/pg_hba.conf", $confdir, $owneruid, $ownergid, '640', 'hba_file';
-move_conffile "$datadir/pg_ident.conf", $confdir, $owneruid, $ownergid, '640', 'ident_file';
+move_conffile "$datadir/postgresql.conf", $confdir, $version, $cluster, $owneruid, $ownergid, '644';
+move_conffile "$datadir/pg_hba.conf", $confdir, $version, $cluster, $owneruid, $ownergid, '640', 'hba_file';
+move_conffile "$datadir/pg_ident.conf", $confdir, $version, $cluster, $owneruid, $ownergid, '640', 'ident_file';
 foreach my $f ($datadir, $confdir, "$confdir/start.conf", "$confdir/pg_ctl.conf") {
     lchown $owneruid, $ownergid, $f or error "lchown $f: $!";
 }
@@ -373,7 +380,8 @@ foreach my $f ($datadir, $confdir, "$confdir/start.conf", "$confdir/pg_ctl.conf"
 PgCommon::set_conf_value $version, $cluster, 'postgresql.conf', 'data_directory', $datadir;
 
 # add access for database superuser
-setup_pg_hba $version if $newcluster and not $explicit_auth_config;
+setup_pg_hba $version, $owneruid, $confdir, $ident_method, $peer_method
+    if $newcluster and not $explicit_auth_config;
 
 # configure socket directory
 if (! $socketdir && ! -e '/var/run/postgresql') {
@@ -384,8 +392,8 @@ if ($socketdir && ! -e $socketdir) {
         error "could not create socket directory $socketdir";
     }
 }
-$orig_euid = $>;
-$orig_egid = $);
+my $orig_euid = $>;
+my $orig_egid = $);
 $) = $ownergid;
 $> = $owneruid;
 unless ($socketdir) {
@@ -410,11 +418,10 @@ if (! -d '/var/log/postgresql') {
     chmod 01775, '/var/log/postgresql';
     lchown 0, $postgres_user[3], '/var/log/postgresql';
 }
-$real_logfile = $custom_logfile || "/var/log/postgresql/postgresql-$version-$cluster.log";
+my $real_logfile = $custom_logfile || "/var/log/postgresql/postgresql-$version-$cluster.log";
 error "logfile $real_logfile is a directory, not a file" if (-d $real_logfile);
 if (! -e $real_logfile) {
-    open L, ">>$real_logfile" or error "could not create log file $real_logfile";
-    close L;
+    open my $fh, '>>', $real_logfile or error "could not create log file $real_logfile";
 }
 chmod 0640, $real_logfile;
 my $g;
@@ -504,9 +511,9 @@ if ($want_ssl && $newcluster && -e $ssl_cert_file && $ssl_key_access) {
 # SSL client certificate CA
 if ($want_ssl && $newcluster && -e $ssl_ca_file) {
     # check if we have a cert in there or just the boilerplate installed by our postinst
-    open F, $ssl_ca_file;
+    open my $fh, '<', $ssl_ca_file or error "could not open $ssl_ca_file for reading";
     my $val;
-    read F, $val, 4096;
+    read $fh, $val, 4096;
     if ($val =~ /^-----BEGIN CERTIFICATE-----/m) {
         if ($version >= '9.2') {
             PgCommon::set_conf_value $version, $cluster, 'postgresql.conf',
@@ -537,15 +544,14 @@ my $defaultenv = "# environment variables for postgres processes
 # evaluated.
 ";
 if (-e $environmentfile) {
-    open ENV, '<', $environmentfile or error "could not read environment file $environmentfile";
+    open my $env, '<', $environmentfile or error "could not read environment file $environmentfile";
     local $/; # slurp mode
-    $defaultenv = <ENV>;
-    close ENV;
+    $defaultenv = <$env>;
 }
 $defaultenv = replace_v_c ($defaultenv, $version, $cluster);
-open ENV, ">$confdir/environment" or error "could not create environment file $confdir/environment";
-print ENV $defaultenv;
-close ENV;
+open my $env, '>', "$confdir/environment" or error "could not create environment file $confdir/environment";
+print $env $defaultenv;
+close $env;
 chmod 0644, "$confdir/environment";
 lchown $owneruid, $ownergid, "$confdir/environment";
 
