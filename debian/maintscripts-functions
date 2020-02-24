@@ -179,7 +179,7 @@ preinst_check_catversion()
     while read version cluster port status owner pgdata logfile; do
         [ "$version" = "$MAJOR_VER" ] || continue
         [ -d "$pgdata" ] || continue
-        DB_CATVERSION=$(LC_ALL=C $PGCONTROLDATA $pgdata | sed -ne 's/^Catalog version number: *\([0-9]\+\)/\1/p')
+        DB_CATVERSION=$(LC_ALL=C $PGCONTROLDATA $pgdata 2>/dev/null | sed -ne 's/^Catalog version number: *\([0-9]\+\)/\1/p')
 
         if [ "$DB_CATVERSION" = "$OLD_CATVERSION" ]; then
             echo "Cluster $MAJOR_VER/$cluster is using catalog version $DB_CATVERSION"
@@ -188,13 +188,7 @@ preinst_check_catversion()
             if [ ! -d "$VARTMPDIR" ]; then
                 echo "Saving binaries for PostgreSQL $MAJOR_VER catalog version $OLD_CATVERSION in $VARTMPDIR ..."
                 mkdir "$VARTMPDIR" # will fail&exit if (potentially rogue) file exists
-                (
-                    cd "$VARTMPDIR"
-                    mkdir bin lib # lib needs to exists, but we do not copy files there
-                    for f in pg_ctl pg_controldata pg_dump pg_resetwal postgres; do
-                        cp -a /usr/lib/postgresql/$MAJOR_VER/bin/$f bin
-                    done
-                )
+                cp -a /usr/lib/postgresql/$MAJOR_VER/bin /usr/lib/postgresql/$MAJOR_VER/lib "$VARTMPDIR"
             fi
         fi
     done

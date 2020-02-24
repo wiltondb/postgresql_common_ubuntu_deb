@@ -1,3 +1,32 @@
+postgresql-common (213) unstable; urgency=medium
+
+  [ Christian Ehrhardt ]
+  * t/020_create_sql_remove.t: fix file clear with procps 3.16. (LP: #1864423)
+
+  [ Christoph Berg ]
+  * pg_lsclusters: List clusters even if the corresponding PostgreSQL
+    binaries are missing; include "binaries_missing" in status column.
+    (Salsa #13)
+  * Reload systemd on install since we don't do that automatically via
+    dh_installinit. Problem reported by velix, thanks! (Salsa #12)
+  * debian/maintscripts-functions: Save full bin and lib dirs on catversion
+    bump. Problem reported by Komzzpa, thanks! (Salsa #9)
+  * debian/maintscripts-functions: Suppress errors from pg_controldata, the
+    control file might be missing if the cluster was pg_upgraded. Spotted by
+    Michael Banck, thanks! (Salsa #6)
+  * pg_wrapper: Reword docs to better describe clusters on the local system.
+    Reported by James Coleman, thanks! (Closes: #950149)
+  * pg_wrapper: Document that `ALTER SYSTEM SET port` will interact badly with
+    cluster selection. (Closes: #919385)
+
+ -- Christoph Berg <myon@debian.org>  Mon, 24 Feb 2020 16:20:14 +0100
+
+postgresql-common (212) unstable; urgency=medium
+
+  * debian/supported-versions: Remove 9.4 support on apt.postgresql.org.
+
+ -- Christoph Berg <myon@debian.org>  Tue, 11 Feb 2020 15:06:26 +0100
+
 postgresql-common (211) unstable; urgency=medium
 
   [ Dagfinn Ilmari Mannsåker ]
