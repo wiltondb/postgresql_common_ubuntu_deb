@@ -1,3 +1,17 @@
+postgresql-common (216) unstable; urgency=medium
+
+  * Updated es debconf translation by Camaleón, thanks! (Closes: #960994)
+  * apt.postgresql.org.sh: Install contrib package with -i.
+  * pg_virtualenv: Show PostgreSQL backtrace when coredumps are found and gdb
+    is installed.
+  * pg_ctlcluster: Fix cluster start in 8.2/3.
+  * pg_virtualenv: 8.2 doesn't have pg_ctl -c yet.
+  * t/170_extensions.t: Don't drop plpgsql before testing extensions.
+  * t/TestLib.pm: Fix deb_installed to only recognize fully installed
+    packages.
+
+ -- Christoph Berg <myon@debian.org>  Wed, 12 Aug 2020 15:10:25 +0200
+
 postgresql-common (215) unstable; urgency=medium
 
   * Mark only the packages as apt NeverAutoRemove for which PostgreSQL
