@@ -27,6 +27,7 @@ $ENV{'PATH'} = '/bin:/usr/bin'; # untaint
 my @postgres_user = getpwnam 'postgres';
 my %defaultconf;
 my $explicit_auth_config = 0;
+my $quiet;
 
 chdir '/';
 
@@ -90,7 +91,8 @@ sub init_db {
         error 'initdb failed' if $?;
     } else{
         change_ugid $owneruid, $ownergid;
-        print "@initdb\n";
+        print "@initdb\n" unless ($quiet);
+        close STDOUT if ($quiet); # suppress initdb output
         exec @initdb;
     }
 
@@ -199,13 +201,24 @@ exit 1 unless GetOptions ('u|user=s' => \$owneruid, 'g|group=s' => \$ownergid,
     },
     'createclusterconf=s' => \$createclusterconf,
     'environment=s' => \$environmentfile,
-    'p|port=i' => \$port, 'locale=s' => \$locale,
+    'p|port=i' => \$port,
+    'q|quiet' => \$quiet,
+    'locale=s' => \$locale,
     'lc-collate=s' => \$lc_collate, 'lc-ctype=s' => \$lc_ctype,
     'lc-messages=s' => \$lc_messages, 'lc-monetary=s' => \$lc_monetary,
     'lc-numeric=s' => \$lc_numeric, 'lc-time=s' => \$lc_time);
 
 # read defaults from /etc/postgresql-common/createcluster.conf
 %defaultconf = PgCommon::read_conf_file ($createclusterconf);
+# process --pgoption parameters
+foreach my $guc (@pgoptions) {
+    if ($guc->[1] eq '') {
+        delete $defaultconf{$guc->[0]};
+    } else {
+        $defaultconf{$guc->[0]} = $guc->[1];
+    }
+}
+
 $explicit_auth_config = 1 if ($defaultconf{initdb_options} and $defaultconf{initdb_options} =~ /(^| )(-\w*A|--auth\b)/);
 
 # check validity of locale
@@ -562,7 +575,7 @@ if ($socketdir eq '/var/run/postgresql') {
     PgCommon::set_conf_value $version, $cluster, 'postgresql.conf', 'external_pid_file', "/var/run/postgresql/$version-$cluster.pid";
 }
 
-# handle other createcluster.conf parameters
+# handle other createcluster.conf parameters, including --pgoption parameters
 foreach my $guc (sort keys %defaultconf) {
     next if $guc =~ /^(create_main_cluster|start_conf|data_directory|waldir|xlogdir|initdb_options|ssl)$/;
     next if $guc eq 'logging_collector' and $version < 8.3;
@@ -577,11 +590,6 @@ foreach my $guc (sort keys %defaultconf) {
         }
     }
     PgCommon::set_conf_value $version, $cluster, 'postgresql.conf', $guc, $val;
-}
-
-# process --pgoption parameters
-foreach my $guc (@pgoptions) {
-    PgCommon::set_conf_value $version, $cluster, 'postgresql.conf', $guc->[0], $guc->[1];
 }
 
 # notify systemd about the new cluster
@@ -606,7 +614,7 @@ if ($start) {
 }
 
 # finally, show the cluster we created
-system 'pg_lsclusters', $version, $cluster;
+system 'pg_lsclusters', $version, $cluster unless ($quiet);;
 
 END {
     # clean up cruft if something went wrong
@@ -760,6 +768,10 @@ Select the port the new cluster listens on (for the Unix socket and the TCP
 port); this must be a number between 1024 and 65535, since PostgreSQL does not
 run as root and thus needs an unprivileged port number. By default the next
 free port starting from 5432 is assigned.
+
+=item B<-q> B<--quiet>
+
+Suppress output from B<initdb>.
 
 =item B<--start>
 
