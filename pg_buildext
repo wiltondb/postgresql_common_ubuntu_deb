@@ -123,7 +123,7 @@ installcheck() {
     # if a package pattern is given, tell pg_virtualenv where the installed files are
     if [ "$opt" ]; then
         pkg=$(echo "$opt" | sed -e "s:%v:$1:g")
-        PKGARGS="-o extension_destdir=$PWD/debian/$pkg -o dynamic_library_path=$PWD/debian/$pkg/usr/lib/postgresql/$1/lib:/usr/lib/postgresql/$1/lib"
+        PKGARGS="-p $pkg"
         DESTDIR="DESTDIR=$PWD/debian/$pkg"
     fi
 
@@ -164,7 +164,8 @@ run_psql () {
     # if a package pattern is given, tell pg_virtualenv where the installed files are
     if [ "$opt" ]; then
         pkg=$(echo "$opt" | sed -e "s:%v:$1:g")
-        PKGARGS="-o extension_destdir=$PWD/debian/$pkg -o dynamic_library_path=$PWD/debian/$pkg/usr/lib/postgresql/$1/lib:/usr/lib/postgresql/$1/lib"
+        PKGARGS="-p $pkg"
+        export DESTDIR="$PWD/debian/$pkg"
     fi
 
     (
@@ -173,6 +174,29 @@ run_psql () {
         fi
         pg_virtualenv ${PKGARGS:-} $VENVARGS -v $1 \
             psql -Xe -v ON_ERROR_STOP=1 < $PSQLTMP
+    )
+}
+
+run_virtualenv () {
+    prepare_env $1
+
+    # ask pg_virtualenv to create a non-system cluster
+    if [ "${NONROOT-unset}" = "unset" ]; then
+        export NONROOT=1
+    fi
+
+    # if a package pattern is given, tell pg_virtualenv where the installed files are
+    if [ "$opt" ]; then
+        pkg=$(echo "$opt" | sed -e "s:%v:$1:g")
+        PKGARGS="-p $pkg"
+        export DESTDIR="$PWD/debian/$pkg"
+    fi
+
+    (
+        if [ "$target" ] && [ "$target" != "." ]; then # if target is given, use it, else stay in the top source dir
+            cd $target
+        fi
+        pg_virtualenv ${PKGARGS:-} $VENVARGS -v $1 ${SHELL:-/bin/sh} -ex < $PSQLTMP
     )
 }
 
@@ -207,9 +231,10 @@ installed_versions() {
     # extract package name template(s) from control.in, split into prefix and suffix
     perl -lne 'print "$1 $2" if /^Package: (.*)PGVERSION(.*)/' debian/control.in | \
         while read prefix suffix; do
-            # translate templates to actually installed packages
+            # translate templates to actually installed packages, and extract version numbers
             dpkg-query --showformat '${db:Status-Status} ${Package}\n' --show "$prefix*$suffix" | \
-                grep '^installed' | cut -d ' ' -f 2 | sed -e "s/^$prefix//; s/$suffix\$//"
+                grep '^installed' | cut -d ' ' -f 2 | sed -e "s/^$prefix//; s/$suffix\$//" | egrep '^[0-9.]+$'
+            # if suffix is empty, the egrep will filter out noise like '13-dbgsym'
         done | sort -uV
 }
 
@@ -278,6 +303,7 @@ case $action in
 	;;
 
     checkcontrol)
+        [ -f debian/control.in ] || exit 0 # silently exit if debian/control.in is not there
         gencontrol
         need_update=
         if ! diff -u debian/control $tmpcontrol; then
@@ -299,6 +325,7 @@ case $action in
         ;;
 
     updatecontrol)
+        [ -f debian/control.in ] || die "debian/control.in is missing, cannot update debian/control"
         gencontrol
         updatecontrol
         exit
@@ -316,7 +343,7 @@ case $action in
             rm -rf debian/$pattern/ debian/$pattern.substvars
         fi
         if [ -f Makefile ]; then
-            make clean
+            make clean USE_PGXS=1
         fi
         exit
         ;;
@@ -343,7 +370,7 @@ case $action in
         exit
         ;;
 
-    psql)
+    psql|virtualenv)
         PSQLTMP=$(mktemp --tmpdir psql.XXXXXX)
         trap "rm -f $PSQLTMP" EXIT
         # if we are fed any input (and hence aren't reading from a terminal),
@@ -359,9 +386,9 @@ case $action in
         fi
         [ "$versions" ] || exit 1
         for v in $versions; do
-            echo "### PostgreSQL $v psql ###"
-            run_psql $v
-            echo "### End $v psql ###"
+            echo "### PostgreSQL $v $action ###"
+            run_$action $v
+            echo "### End $v $action ###"
         done
         exit
         ;;
