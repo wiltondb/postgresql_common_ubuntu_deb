@@ -1,3 +1,13 @@
+postgresql-common (220) unstable; urgency=medium
+
+  * dh_make_pgxs: Use dh --with pgxs in template.
+  * dh_make_pgxs: Add `R³: no` to control.in template.
+  * debhelper: Use dpkg_architecture_value() instead of hostarch() because
+    Dh_Lib.pm on stretch and xenial doesn't have the latter yet.
+  * Add t/190_pg_buildext.t covering pg_buildext and debhelper integration.
+
+ -- Christoph Berg <myon@debian.org>  Mon, 12 Oct 2020 23:21:52 +0200
+
 postgresql-common (219) unstable; urgency=medium
 
   * postgresql-server-dev-all: Depend on strict postgresql-common version.

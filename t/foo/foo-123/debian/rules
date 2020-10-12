@@ -11,7 +11,7 @@ override_dh_installdocs:
 #
 # change the way tests are run:
 # override_dh_pgxs_test:
-#	+pg_buildext installcheck . . postgresql-%v-@EXTNAME@
+#	+pg_buildext installcheck . . postgresql-%v-foo
 
 # classic `pg_buildext` interface:
 
@@ -24,7 +24,7 @@ override_dh_installdocs:
 #	# nothing to do here, see debian/tests/* instead
 #
 #override_dh_auto_install:
-#	+pg_buildext install build-%v postgresql-%v-@EXTNAME@
+#	+pg_buildext install build-%v postgresql-%v-foo
 #
 #override_dh_installdocs:
 #	dh_installdocs --all README.*

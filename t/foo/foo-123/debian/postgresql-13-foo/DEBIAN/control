@@ -1,0 +1,12 @@
+Package: postgresql-13-foo
+Source: foo
+Version: 123-1
+Architecture: amd64
+Maintainer: Debian PostgreSQL Maintainers <team+postgresql@tracker.debian.org>
+Installed-Size: 34
+Depends: postgresql-13, libc6 (>= 2.2.5)
+Section: database
+Priority: optional
+Homepage: https://FIXME/foo
+Description: FIXME PostgreSQL extension foo
+ FIXME long description here

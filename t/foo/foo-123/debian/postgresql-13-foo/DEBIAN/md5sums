@@ -1,0 +1,10 @@
+e3564f05aa99f295843cda08623d988c  usr/lib/postgresql/13/lib/bitcode/foo.index.bc
+b791eb3c734665926fad096de0c9149e  usr/lib/postgresql/13/lib/bitcode/foo/foo.bc
+695c4592be54ba719c668ab39f54c046  usr/lib/postgresql/13/lib/foo.so
+62527e75f936bcaa8eb4853fe4ffaab6  usr/share/doc/postgresql-13-foo/README.md
+215807a76edd5739646433bc5447132e  usr/share/doc/postgresql-13-foo/changelog.Debian.gz
+80dd91d7025479e74b660a9aa52d299a  usr/share/doc/postgresql-13-foo/copyright
+a02e22f36df02b17cd5e735ad6fe14ef  usr/share/postgresql/13/extension/foo--100--123.sql
+1b333faee9a0cedf7ebff87532acbfd1  usr/share/postgresql/13/extension/foo--100.sql
+a02e22f36df02b17cd5e735ad6fe14ef  usr/share/postgresql/13/extension/foo--123.sql
+213e0b24ca02e78d7dc2e72bd425c61b  usr/share/postgresql/13/extension/foo.control
