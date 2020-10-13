@@ -1,8 +1,0 @@
-CREATE EXTENSION foo;
-SELECT foo();
- foo 
------
- bar
-(1 row)
-
-DROP EXTENSION foo;

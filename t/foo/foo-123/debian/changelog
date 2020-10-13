@@ -1,5 +1,0 @@
-foo (123-1) UNRELEASED; urgency=medium
-
-  * Initial release. (Closes: #XXXXXX)
-
- -- Christoph Berg <myon@debian.org>  Thu, 08 Oct 2020 23:28:16 +0200

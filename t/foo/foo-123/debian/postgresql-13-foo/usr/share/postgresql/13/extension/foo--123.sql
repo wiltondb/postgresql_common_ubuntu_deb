@@ -1,3 +1,0 @@
-CREATE OR REPLACE FUNCTION foo ()
-RETURNS text LANGUAGE C
-AS '$libdir/foo';

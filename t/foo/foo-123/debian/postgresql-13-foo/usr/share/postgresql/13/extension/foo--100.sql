@@ -1,3 +1,0 @@
-CREATE OR REPLACE FUNCTION foo ()
-RETURNS text LANGUAGE SQL
-AS $$ SELECT 'old bar'::text $$;

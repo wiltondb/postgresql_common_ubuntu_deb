@@ -13,9 +13,19 @@ if ($PgCommon::rpm) {
     exit;
 }
 
+# when invoked from the postgresql-NN package tests, postgresql-server-dev-all is not installed
+if (! -x '/usr/bin/dh_make_pgxs') {
+    pass "Skipping pg_buildext tests, /usr/bin/dh_make_pgxs is not installed";
+    done_testing();
+    exit;
+}
+
 my $arch = `dpkg-architecture -qDEB_HOST_ARCH`;
 chomp $arch;
 
+if ($ENV{PG_VERSIONS}) {
+    $ENV{PG_SUPPORTED_VERSIONS} = $ENV{PG_VERSIONS};
+}
 my @versions = split /\s+/, `/usr/share/postgresql-common/supported-versions`;
 
 # prepare build environment
@@ -34,15 +44,16 @@ foreach my $ver (@versions) {
     my $deb = "postgresql-$ver-foo_123-1_$arch.deb";
     ok (-f $deb, "$deb was built");
     SKIP: {
-        skip "No in-tree installcheck on $ver", 2 if ($ver < 9.5);
+        my $have_extension_destdir = `grep extension_destdir /usr/share/postgresql/$ver/postgresql.conf.sample`;
+        skip "No in-tree installcheck on PG $ver (missing extension_destdir)", 2 unless ($have_extension_destdir);
         like_program_out 'nobody', "cd foo-123 && PG_SUPPORTED_VERSIONS=$ver dh_pgxs_test",
             0, qr/PostgreSQL $ver installcheck.*test foo * \.\.\. ok/s;
     }
     program_ok 0, "dpkg -i $deb";
-    like_program_out 'nobody', "cd foo-123 && PG_SUPPORTED_VERSIONS=$ver pg_buildext installcheck",
+    like_program_out 'nobody', "cd foo-123 && pg_buildext installcheck",
         0, qr/PostgreSQL $ver installcheck.*test foo * \.\.\. ok/s;
-    like_program_out 'nobody', "cd foo-123 && echo 'SELECT 3*41, version()' | PG_SUPPORTED_VERSIONS=$ver pg_buildext psql", 0, qr/123.*PostgreSQL $ver\./;
-    like_program_out 'nobody', "cd foo-123 && echo 'echo --\$PGVERSION--' | PG_SUPPORTED_VERSIONS=$ver pg_buildext virtualenv", 0, qr/--$ver--/;
+    like_program_out 'nobody', "cd foo-123 && echo 'SELECT 3*41, version()' | pg_buildext psql", 0, qr/123.*PostgreSQL $ver\./;
+    like_program_out 'nobody', "cd foo-123 && echo 'echo --\$PGVERSION--' | pg_buildext virtualenv", 0, qr/--$ver--/;
     program_ok 0, "dpkg -r postgresql-$ver-foo";
 }
 

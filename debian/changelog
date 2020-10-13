@@ -1,3 +1,21 @@
+postgresql-common (221) unstable; urgency=medium
+
+  [ Christoph Berg ]
+  * pg_virtualenv: Skip build-time package tests if the PG server is missing
+    extension_destdir support.
+  * Test-depend on debhelper for the pg_buildext tests.
+  * Skip pg_buildext tests when invoked from postgresql-NN server tests.
+  * dh_make_pgxs: Support running with older debhelper versions.
+  * pgdg/apt.postgresql.org.sh: Bump devel version to 14, thanks to Aaron
+    Pavely for spotting!
+  * pg_updateaptconfig: Fix not to emit duplicated version entries.
+  * Add Breaks on regressing packages with the move to PG13.
+
+  [ Dominik George ]
+  * pg_buildext: Fail late on builds and tests to logs for all versions.
+
+ -- Christoph Berg <myon@debian.org>  Tue, 13 Oct 2020 23:27:27 +0200
+
 postgresql-common (220) unstable; urgency=medium
 
   * dh_make_pgxs: Use dh --with pgxs in template.
