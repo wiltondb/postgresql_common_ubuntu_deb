@@ -1,3 +1,11 @@
+postgresql-common (223) unstable; urgency=medium
+
+  * pg_ctlcluster: Refuse to start root-owned clusters with a sensible error
+    message.
+  * pgdg/apt.postgresql.org.sh: Add groovy, remove archived distributions.
+
+ -- Christoph Berg <myon@debian.org>  Thu, 12 Nov 2020 12:37:57 +0100
+
 postgresql-common (222) unstable; urgency=medium
 
   [ Michael Banck ]
