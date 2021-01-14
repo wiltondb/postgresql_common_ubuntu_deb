@@ -183,6 +183,10 @@ sub adapt_conffiles {
             $set->('wal_keep_size', $wal_keep_size);
         }
     }
+
+    if ($newversion >= '14') {
+        $deprecate->(\%c, 'operator_precedence_warning', 'does not exist anymore');
+    }
 }
 
 # Write temporary pg_hba.conf.
@@ -236,7 +240,7 @@ sub run_parts {
 
 # command line arguments
 
-my $newest_version = get_newest_version;
+my $newest_version = get_newest_version('postgres');
 $newversion = $newest_version;
 
 my $method = 'dump';

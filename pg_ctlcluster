@@ -76,13 +76,16 @@ sub stop_check_pid_file {
 # Arguments: <version> <cluster> <port> <socket dir>
 sub cluster_port_ready {
     my ($v, $c, $p, $sd) = @_;
-    my $psql = get_program_path 'psql';
+    my $psql = get_program_path('psql', $v);
     error 'cluster_port_ready: could not find psql binary' unless $psql;
     my $n = 0;
     my $result = 0;
 
     # probe until we get three successful or failed connections in a row
     my $nopwoption = $v >= 8.4 ? '-w' : '';
+    if ($v < 8.4) {
+        $ENV{'PGPASSWORD'} = 'foo'; # prevent hangs if superuser cannot connect without password
+    }
     my $out;
     while ($n < ($result ? 10 : 3)) {
         select undef, undef, undef, 0.5;
