@@ -9,6 +9,7 @@ License:        GPLv2+
 URL:            https://packages.debian.org/sid/%{name}
 Source0:        http://ftp.debian.org/debian/pool/main/p/%{name}/%{name}_%{version}.tar.xz
 Requires:       postgresql-client-common
+Requires:       perl-JSON
 
 %description
 The postgresql-common package provides a structure under which
@@ -62,11 +63,12 @@ for manpages in debian/*.manpages; do
     done < $manpages
 done
 # install pg_wrapper symlinks by augmenting the existing pgdg.rpm alternatives
+cat debian/postgresql-*common.links | \
 while read dest link; do
     name="pgsql-$(basename $link)"
     echo "update-alternatives --install /$link $name /$dest 9999" >> postgresql-client-common.post
     echo "update-alternatives --remove $name /$dest" >> postgresql-client-common.preun
-done < debian/postgresql-client-common.links
+done
 # activate rpm-specific tweaks
 sed -i -e 's/#redhat# //' \
     %{buildroot}/usr/bin/pg_config \
@@ -98,8 +100,8 @@ popd
 %config /etc/logrotate.d/postgresql-common
 
 %if 0%{?rhel} >= 7
-%config /lib/systemd/system/postgresql.service
-%config /lib/systemd/system/postgresql@.service
+%config /lib/systemd/system/*.service
+%config /lib/systemd/system/*.timer
 %config /lib/systemd/system-generators/postgresql-generator
 %endif
 

@@ -1,3 +1,29 @@
+postgresql-common (226) experimental; urgency=medium
+
+  [ Christoph Berg ]
+  * pg_backupcluster, pg_restorecluster: New front-ends to pg_basebackup,
+    pg_receivewal and pg_dump with systemd service/timer integration.
+  * pg_dropcluster: Disable cluster and backup services on drop.
+  * pg_upgradecluster: Deprecate vacuum_cleanup_index_scale_factor in 14.
+  * Promote libjson-perl to Depends.
+  * Move cluster owner verification from pg_ctlcluster to new PgCommon.pm
+    function validate_cluster_owner and use it in pg_upgradecluster,
+    pg_renamecluster, pg_dropcluster. (Extends the CVE-2019-3466 fix.)
+  * PgCommon.pm: documentation converted to POD, many thanks to Pablo Valdés
+    for the excellent patch!
+  * PgCommon.pm error: Use die() instead of exit().
+  * supported-versions: Drop support for 9.5 on apt.postgresql.org.
+
+  [ Hanefi Onaldi ]
+  * pg_buildext build: Move extra_cflags from command line arguments to COPT
+    so Makefile.global CFLAGS are not overridden
+
+  [ Bryce Harrington ]
+  * d/postinst: Only add postgres to group ssl-cert if it isn't
+    already a member of that group. (Closes: #984473, LP: #1690432)
+
+ -- Christoph Berg <myon@debian.org>  Wed, 12 May 2021 17:16:38 +0200
+
 postgresql-common (225) unstable; urgency=medium
 
   * pg_lsclusters, cluster_info: Show cluster managed by pacemaker or patroni.
