@@ -12,7 +12,6 @@ Vcs-Git: https://salsa.debian.org/postgresql/postgresql-common.git
 Vcs-Browser: https://salsa.debian.org/postgresql/postgresql-common
 Build-Depends:
  debhelper-compat (= 13),
- libreadline-dev,
 
 Package: postgresql-common
 Architecture: all
@@ -23,11 +22,11 @@ Depends:
  debconf (>= 0.5.00) | debconf-2.0,
  libjson-perl,
  lsb-base (>= 3.0-3),
- perl (>= 5.14),
  postgresql-client-common (= ${source:Version}),
  ssl-cert (>= 1.0.11),
  ucf,
  ${misc:Depends},
+ ${perl:Depends},
 Recommends:
  e2fsprogs,
  logrotate,
@@ -59,9 +58,8 @@ Multi-Arch: foreign
 Depends:
  netbase,
  ${misc:Depends},
+ ${perl:Depends},
  ${pgdg:Depends},
-Recommends:
- ${readline:Recommends},
 Description: manager for multiple PostgreSQL client versions
  The postgresql-client-common package provides a structure under which
  multiple versions of PostgreSQL client programs may be installed at
@@ -81,7 +79,7 @@ Package: postgresql-server-dev-all
 Architecture: any
 Multi-Arch: same
 Depends:
- make,
+ make:any,
  postgresql-common (= ${source:Version}),
  ${misc:Depends},
  ${server-dev-all-depends},
