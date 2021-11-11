@@ -150,6 +150,7 @@ sub check_major {
 
     # verify that log symlink works
     is ((exec_as 'root', "pg_ctlcluster $v main stop"), 0, 'stopping cluster');
+    usleep $delay;
     truncate "$default_log", 0; # empty log file
     my $p = (PgCommon::cluster_data_directory $v, 'main') . '/mylog';
     symlink $p, "/etc/postgresql/$v/main/log";
@@ -159,6 +160,7 @@ sub check_major {
     ok -z $default_log, "default log is not used";
     like_program_out 'postgres', 'pg_lsclusters -h', 0, qr/^$v\s+main.*$p\n$/;
     is ((exec_as 'root', "pg_ctlcluster $v main stop"), 0, 'stopping cluster');
+    usleep $delay;
     truncate "$default_log", 0; # empty log file
 
     # verify that explicitly configured log file trumps log symlink
@@ -392,7 +394,7 @@ tel|2
     print WH "BEGIN;\n";
     usleep $delay;
     like_program_out 0, "ps h $client_pid", 0, qr/idle in transaction/, 'process title is idle in transaction';
-    print WH "SELECT pg_sleep(2); COMMIT;\n";
+    print WH "SELECT pg_sleep(4);\n";
     usleep $delay;
     like_program_out 0, "ps h $client_pid", 0, qr/SELECT/, 'process title is SELECT';
 
