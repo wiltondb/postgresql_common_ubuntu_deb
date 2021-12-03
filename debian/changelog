@@ -1,3 +1,10 @@
+postgresql-common (233) unstable; urgency=medium
+
+  * pg_virtualenv.1: Document -p and extension_destdir.
+  * server: Centralize server packages debian/rules logic here.
+
+ -- Christoph Berg <myon@debian.org>  Fri, 03 Dec 2021 09:50:31 +0100
+
 postgresql-common (232) unstable; urgency=medium
 
   * pg_backupcluster: Preserve wal file timestamps with compresswal.

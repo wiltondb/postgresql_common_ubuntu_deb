@@ -11,7 +11,7 @@ use lib 't';
 use TestLib;
 use PgCommon;
 
-use Test::More tests => 151 * @MAJORS;
+use Test::More tests => 147 * @MAJORS;
 
 $ENV{_SYSTEMCTL_SKIP_REDIRECT} = 1; # FIXME: testsuite is hanging otherwise
 
@@ -350,7 +350,7 @@ tel|2
 	change_ugid $pw[2], $pw[3];
 	open(STDIN, "<& RH");
 	dup2(POSIX::open('/dev/null', POSIX::O_WRONLY), 1);
-	exec 'psql', 'nobodydb' or die "could not exec psql process: $!";
+	exec 'psql', '-Xq', '-vPROMPT1=', 'nobodydb' or die "could not exec psql process: $!";
     }
     close RH;
     select WH; $| = 1; # make unbuffered
@@ -394,17 +394,10 @@ tel|2
     print WH "BEGIN;\n";
     usleep $delay;
     like_program_out 0, "ps h $client_pid", 0, qr/idle in transaction/, 'process title is idle in transaction';
-    print WH "SELECT pg_sleep(4);\n";
-    usleep $delay;
-    like_program_out 0, "ps h $client_pid", 0, qr/SELECT/, 'process title is SELECT';
 
     close WH;
+    kill 15, $psql;
     waitpid $psql, 0;
-
-    # Drop database and user again.
-    usleep $delay;
-    is ((exec_as 'nobody', 'dropdb nobodydb', $outref, 0), 0, 'dropdb nobodydb', );
-    is ((exec_as 'postgres', 'dropuser nobody', $outref, 0), 0, 'dropuser nobody');
 
     # log file gets re-created by pg_ctlcluster
     is ((exec_as 0, "pg_ctlcluster $v main stop"), 0, 'stopping cluster');
