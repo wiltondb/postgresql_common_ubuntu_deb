@@ -110,8 +110,8 @@ ifneq ($(filter pkg.postgresql.cassert,$(DEB_BUILD_PROFILES)),)
 endif
 
 # hurd implemented semaphores only recently and tests still fail a lot
-# plperl currently fails on kfreebsd-*
-ifneq ($(filter hurd-% kfreebsd-%,$(DEB_HOST_ARCH_OS)),)
+# plperl fails on kfreebsd-* (#704802)
+ifneq ($(filter hurd kfreebsd,$(DEB_HOST_ARCH_OS)),)
   TEST_FAIL_COMMAND = exit 0
 else
   TEST_FAIL_COMMAND = exit 1
@@ -205,7 +205,7 @@ override_dh_auto_test-indep:
 
 override_dh_auto_test-arch:
 ifeq (, $(findstring nocheck, $(DEB_BUILD_OPTIONS)))
-	# when tests fail, print newest 3 log files
+	# when tests fail, print newest log files
 	# initdb doesn't like LANG and LC_ALL to contradict, unset LANG and LC_CTYPE here
 	# temp-install wants to be invoked from a top-level make, unset MAKELEVEL here
 	unset LANG LC_CTYPE MAKELEVEL; ulimit -c unlimited; \
@@ -214,7 +214,7 @@ ifeq (, $(findstring nocheck, $(DEB_BUILD_OPTIONS)))
 	  PG_TEST_EXTRA='ssl' \
 	  PROVE_FLAGS="--verbose"; \
 	then \
-	    for l in `find build -name 'regress*' -o -name '*.log' | perl -we 'print map { "$$_\n"; } sort { (stat $$a)[9] <=> (stat $$b)[9] } map { chomp; $$_; } <>' | tail -n 10`; do \
+	    for l in `find build -name 'regression.*' -o -name '*.log' -o -name '*_log_*' | perl -we 'print map { "$$_\n"; } sort { (stat $$a)[9] <=> (stat $$b)[9] } map { chomp; $$_; } <>' | tail -n 10`; do \
 		echo "******** $$l ********"; \
 		cat $$l; \
 	    done; \
