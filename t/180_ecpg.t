@@ -5,7 +5,7 @@ use strict;
 use lib 't';
 use TestLib;
 use PgCommon;
-use Test::More tests => 17;
+use Test::More tests => 14;
 
 my $v = $MAJORS[-1];
 
@@ -28,8 +28,9 @@ EXEC SQL BEGIN DECLARE SECTION;
 EXEC SQL END DECLARE SECTION;
 
 int main() {
+    ECPGdebug(1, stderr);
     EXEC SQL CONNECT TO template1;
-    EXEC SQL SELECT current_database() INTO :output;
+    EXEC SQL SELECT 'Database is ' || current_database() INTO :output;
     puts(output);
     EXEC SQL DISCONNECT ALL;
     return 0;
@@ -44,16 +45,12 @@ is_program_out 'nobody', 'cc -I$(pg_config --includedir) -L$(pg_config --libdir)
     0, '', 'compiling ecpg output';
 chdir '/' or die "could not chdir to /: $!";
 
-# create cluster
-is ((system "pg_createcluster $v main --start >/dev/null"), 0, "pg_createcluster $v main");
-is ((exec_as 'postgres', 'createuser nobody -D -R -S'), 0, 'createuser nobody');
-
-is_program_out 'nobody', "$workdir/test", 0, "template1\n", 
-    'runs and gives correct output';
+# run program
+like_program_out 'nobody', "pg_virtualenv $workdir/test", 0, qr/Database is template1/,
+    'test program runs and gives correct output';
 
 # clean up
 system "rm -rf $workdir";
-is ((system "pg_dropcluster $v main --stop"), 0, "pg_dropcluster $v main");
 check_clean;
 
 # vim: filetype=perl
