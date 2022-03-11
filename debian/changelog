@@ -1,3 +1,10 @@
+postgresql-common (239) unstable; urgency=medium
+
+  * t/085_pg_ctl.conf.t: sudo and salsa-ci set the core file size hard limit
+    to 0 by default, undo that. (Salsa: postgresql/postgresql#2)
+
+ -- Christoph Berg <myon@debian.org>  Fri, 11 Mar 2022 12:03:17 +0100
+
 postgresql-common (238) unstable; urgency=medium
 
   * pg_restorecluster: Correctly detect errors on restore.
