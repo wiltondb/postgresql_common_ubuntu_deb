@@ -1,3 +1,12 @@
+postgresql-common (241) unstable; urgency=medium
+
+  * Remove stats_temp_directory in PG 15.
+  * server/postgresql.mk: Fix detection of latest llvm version.
+  * server/postgresql.mk: Remove builddir prefix from generated pg_config.
+  * t/045_backup.t: Accept new PG15 psql -l output.
+
+ -- Christoph Berg <myon@debian.org>  Wed, 11 May 2022 15:57:04 +0200
+
 postgresql-common (240) unstable; urgency=medium
 
   * t/085_pg_ctl.conf.t: Honor systemd hard core file size limit.

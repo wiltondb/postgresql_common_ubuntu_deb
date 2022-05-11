@@ -83,7 +83,7 @@ endif
 ifeq ($(call version_ge,11),y)
   # if LLVM is installed, use it
   ifneq ($(wildcard /usr/bin/llvm-config-*),)
-    LLVM_CONFIG = $(lastword $(sort $(wildcard /usr/bin/llvm-config-*)))
+    LLVM_CONFIG = $(lastword $(shell ls -v /usr/bin/llvm-config-*))
     LLVM_VERSION = $(subst /usr/bin/llvm-config-,,$(LLVM_CONFIG))
     CONFIGURE_FLAGS += --with-llvm LLVM_CONFIG=$(LLVM_CONFIG) CLANG=/usr/bin/clang-$(LLVM_VERSION)
   else
@@ -94,6 +94,12 @@ endif
 
 ifeq ($(call version_ge,14),y)
   CONFIGURE_FLAGS += --with-lz4
+endif
+
+ifeq ($(call version_ge,15),y)
+  ifeq ($(filter pkg.postgresql.nozstd,$(DEB_BUILD_PROFILES)),)
+    CONFIGURE_FLAGS += --with-zstd
+  endif
 endif
 
 # Facilitate hierarchical profile generation on amd64 (#730134)
@@ -182,9 +188,10 @@ override_dh_install-arch:
 
 	# assemble perl version of pg_config in libpq-dev
 	sed -ne '1,/__DATA__/p' $(AUX_MK_DIR)/pg_config.pl > debian/libpq-dev/usr/bin/pg_config
-	LC_ALL=C debian/postgresql-client-$(MAJOR_VER)/usr/lib/postgresql/$(MAJOR_VER)/bin/pg_config >> debian/libpq-dev/usr/bin/pg_config
+	LC_ALL=C debian/postgresql-client-$(MAJOR_VER)/usr/lib/postgresql/$(MAJOR_VER)/bin/pg_config | sed -e 's![^ ]*/debian/postgresql-client-$(MAJOR_VER)!!' >> debian/libpq-dev/usr/bin/pg_config
 	LC_ALL=C debian/postgresql-client-$(MAJOR_VER)/usr/lib/postgresql/$(MAJOR_VER)/bin/pg_config --help >> debian/libpq-dev/usr/bin/pg_config
 	chmod 755 debian/libpq-dev/usr/bin/pg_config
+	[ "$$(debian/libpq-dev/usr/bin/pg_config --bindir)" = "/usr/lib/postgresql/$(MAJOR_VER)/bin" ]
 
 	# remove actual build path from Makefile.global for reproducibility
 	sed -i -e "s!^abs_top_builddir.*!abs_top_builddir = /build/postgresql-$(MAJOR_VER)/build!" \
