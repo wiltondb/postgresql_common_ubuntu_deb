@@ -1,3 +1,10 @@
+postgresql-common (242) unstable; urgency=medium
+
+  * server/postgresql.mk: Tell pg_upgrade to create sockets in /tmp.
+  * pg_virtualenv: Unset PGHOSTADDR PGPORT PGSERVICE.
+
+ -- Christoph Berg <myon@debian.org>  Thu, 11 Aug 2022 11:25:31 +0200
+
 postgresql-common (241) unstable; urgency=medium
 
   * Remove stats_temp_directory in PG 15.
