@@ -1,3 +1,22 @@
+postgresql-common (243) unstable; urgency=medium
+
+  * pg_backupcluster: Enable gzip compression with pg_receivewal.
+  * next_free_port: Set SO_REUSEADDR and listen() on sockets created.
+  * t/TestLib.pm check_clean: Use ss from iproute2 instead of netstat.
+  * debian/supported-versions: Don't look at the OS release, we'll just ship
+    the matching file in that release.
+  * Test-depend on locales-all.
+  * pgcommon.sh: Remove, dropping get_release and locale_gen.
+  * postgresql.service: Improve comment explaining the relation to
+    postgresql@.service.
+  * testsuite: Run all tests even when one is failing.
+  * pg_wrapper: If the cluster version is older than 9.2, consider psql only
+    up to version 14 instead of the newest version.
+  * Use grep -E instead of egrep.
+  * debian/rules: Use DEB_VERSION instead of dpkg-parsechangelog.
+
+ -- Christoph Berg <myon@debian.org>  Thu, 08 Sep 2022 15:34:54 +0200
+
 postgresql-common (242) unstable; urgency=medium
 
   * server/postgresql.mk: Tell pg_upgrade to create sockets in /tmp.
