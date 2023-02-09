@@ -1,3 +1,18 @@
+postgresql-common (247) unstable; urgency=medium
+
+  [ Christoph Berg ]
+  * Update pt_BR debconf translation, thanks Paulo Henrique de Lima Santana!
+    (Closes: #1024197)
+  * postgresql.mk: Ignore test failures on alpha.
+  * pgdg/apt.postgresql.org.sh: Fix version comparisons for 9.x.
+  * pg_upgradecluster: Remove promote_trigger_file in PG16.
+  * t/200_maintscripts.t: Run apt-get update before reinstalling pg-common.
+
+  [ Dennis Schwan ]
+  * Fix pgsql-XX isn't numeric in numeric comparison. (Salsa #31)
+
+ -- Christoph Berg <myon@debian.org>  Thu, 09 Feb 2023 11:28:43 +0100
+
 postgresql-common (246) unstable; urgency=medium
 
   * pg_buildext: If PGVERSION appears outside the package name only, fill in
