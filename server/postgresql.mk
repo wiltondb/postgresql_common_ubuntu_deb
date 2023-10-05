@@ -80,6 +80,7 @@ ifeq ($(call version_ge,10),y)
   CONFIGURE_FLAGS += --with-icu
 endif
 
+ifeq (n,y)
 ifeq ($(call version_ge,11),y)
   # if LLVM is installed, use it
   ifneq ($(wildcard /usr/bin/llvm-config-*),)
@@ -90,6 +91,7 @@ ifeq ($(call version_ge,11),y)
     LLVM_VERSION = 0.invalid # mute dpkg error on empty version fields in debian/control
   endif
   TEMP_CONFIG = TEMP_CONFIG=$(AUX_MK_DIR)/test-with-jit.conf
+endif
 endif
 
 ifeq ($(call version_ge,14),y)
