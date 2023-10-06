@@ -1,4 +1,4 @@
-postgresql-common (248+wiltondb3.3-1~UNRELEASED) UNRELEASED; urgency=medium
+postgresql-common (1:248+wiltondb3.3-1~UNRELEASED) UNRELEASED; urgency=medium
 
   * WiltonDB 3.3 initial build
 

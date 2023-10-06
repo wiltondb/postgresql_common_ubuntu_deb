@@ -35,7 +35,7 @@ override_dh_gencontrol:
 	# the versionless metapackages need to have version numbers which match
 	# the server version, not the p-common version
 	dh_gencontrol -ppostgresql -ppostgresql-client -ppostgresql-doc -ppostgresql-contrib -- \
-		-Vdefault-version="$(DEFAULT_VER)" -v'$(DEFAULT_VER)+$${source:Version}'
+		-Vdefault-version="$(DEFAULT_VER)" -v'$${source:Version}'
 
 	dh_gencontrol -ppostgresql-all -- \
 		-Vpostgresql-all-depends="$(foreach v,$(SUPPORTED_VERSIONS),postgresql-contrib-$v,postgresql-plperl-$v,$(if $(filter 8.% 9.% 10 11, $v), $(PYTHON2_PACKAGE)),postgresql-plpython3-$v,postgresql-pltcl-$v,)"

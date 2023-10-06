@@ -34,31 +34,3 @@ clean:
 
 sub-pgdg:
 	$(MAKE) -C pgdg
-
-# rpm
-
-DPKG_VERSION=$(shell sed -ne '1s/.*(//; 1s/).*//p' debian/changelog)
-RPMDIR=$(CURDIR)/rpm
-TARNAME=postgresql-common_$(DPKG_VERSION).tar.xz
-TARBALL=$(RPMDIR)/SOURCES/$(TARNAME)
-
-rpmbuild: $(TARBALL)
-	rpmbuild -D"%_topdir $(RPMDIR)" --define='version $(DPKG_VERSION)' -ba rpm/postgresql-common.spec
-
-$(TARBALL):
-	mkdir -p $(dir $(TARBALL))
-	if test -f ../$(TARNAME); then \
-	    cp -v ../$(TARNAME) $(TARBALL); \
-	else \
-	    git archive --prefix=postgresql-common-$(DPKG_VERSION)/ HEAD | xz > $(TARBALL); \
-	fi
-
-rpminstall:
-	sudo yum install -y perl-JSON
-	sudo rpm --upgrade --replacefiles --replacepkgs -v $(RPMDIR)/RPMS/noarch/*-$(DPKG_VERSION)-*.rpm
-
-rpmremove:
-	-sudo rpm -e postgresql-common postgresql-client-common postgresql-server-dev-all
-
-rpmclean:
-	rm -rf $(RPMDIR)/*/
