@@ -56,6 +56,7 @@ CONFIGURE_FLAGS = \
   --with-gssapi \
   --with-ldap \
   --with-pgport=5432 \
+  --with-system-tzdata=/usr/share/zoneinfo \
   AWK=mawk \
   MKDIR_P='/bin/mkdir -p' \
   PROVE='/usr/bin/prove' \
