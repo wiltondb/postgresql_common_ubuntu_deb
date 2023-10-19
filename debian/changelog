@@ -1,3 +1,9 @@
+postgresql-common (1:248+wiltondb3.3-4~UNRELEASED) UNRELEASED; urgency=medium
+
+  * Do not create DB cluster automatically in post-install action
+
+ -- WiltonDB Software <info@wiltondb.com>  Thu, 19 Oct 2023 12:52:16 +0000
+
 postgresql-common (1:248+wiltondb3.3-3~UNRELEASED) UNRELEASED; urgency=medium
 
   * Reintroduce usage of system tzdata
